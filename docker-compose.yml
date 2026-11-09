@@ -1,3 +1,8 @@
+# Subir tudo:  docker compose up -d --build
+#   web  -> http://localhost:${WEB_PORT:-3100}
+#   api  -> http://localhost:${API_PORT:-8100}/api/health
+#   db   -> localhost:${DB_PORT:-5440}   (usuário/senha/db: moura)
+# Banco só para testes automatizados:  docker compose --profile test up -d db_test   (porta 5433)
 services:
   db:
     image: postgres:17
@@ -6,18 +11,53 @@ services:
       POSTGRES_PASSWORD: moura
       POSTGRES_DB: moura
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5440}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moura -d moura"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://moura:moura@db:5432/moura
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      COOKIE_SECURE: "false"   # http://localhost não aceita cookie Secure
+      ENVIRONMENT: dev
+      # Cria o primeiro admin na subida (idempotente). Troque a senha se expor a máquina na rede.
+      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@moura.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-moura-admin-123}
+    ports:
+      - "${API_PORT:-8100}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://api:8000   # o Next reescreve /api/* para a API (rede interna do compose)
+    ports:
+      - "${WEB_PORT:-3100}:3000"
+    depends_on:
+      - api
+
   db_test:
+    profiles: ["test"]
     image: postgres:17
     environment:
       POSTGRES_USER: moura
       POSTGRES_PASSWORD: moura
       POSTGRES_DB: moura
     ports:
-      - "5433:5432"
+      - "${DB_TEST_PORT:-5433}:5432"
     tmpfs:
       - /var/lib/postgresql/data
+
 volumes:
   pgdata:

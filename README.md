@@ -7,12 +7,30 @@ Spec: `docs/superpowers/specs/2026-11-09-sistema-gestao-design.md` · Fase atual
 - `backend/` — FastAPI + SQLAlchemy 2 async + Alembic (Python 3.12, uv)
 - `frontend/` — Next.js (App Router) PWA
 
-## Rodando localmente
+## Rodando tudo com Docker (mais simples)
 
 ```bash
-docker compose up -d db            # Postgres de desenvolvimento (porta 5432)
+docker compose up -d --build
+```
+
+| Serviço | Endereço no host | Observação |
+|---|---|---|
+| web (PWA) | http://localhost:3100 | login: `admin@moura.local` / `moura-admin-123` |
+| api | http://localhost:8100/api/health | docs em `/docs` |
+| db | localhost:5440 | usuário/senha/db: `moura` |
+
+As portas são escolhidas para não colidir com outros projetos e podem ser trocadas por variável
+(`WEB_PORT`, `API_PORT`, `DB_PORT`; também `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `JWT_SECRET`), por exemplo
+`WEB_PORT=3200 docker compose up -d --build`. O admin inicial é criado na subida da API (idempotente);
+mude a senha padrão antes de expor a máquina na rede. Parar: `docker compose down` (mantém os dados;
+`down -v` apaga o banco). Depois de mudar o código: `docker compose up -d --build` de novo.
+
+## Desenvolvimento sem Docker para a API/front
+
+```bash
+docker compose up -d db            # só o Postgres (porta 5440)
 cd backend
-cp .env.example .env               # ajuste JWT_SECRET
+cp .env.example .env               # DATABASE_URL=...@localhost:5440/moura e JWT_SECRET
 uv sync
 uv run alembic upgrade head
 uv run python scripts/create_admin.py --name "Seu Nome" --email voce@moura.com   # senha via prompt ou ADMIN_PASSWORD
@@ -24,9 +42,10 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-Testes: `docker compose up -d db_test`, depois `cd backend && uv run pytest -q`;
-`cd frontend && npm run test:unit && npx playwright test` (desktop, Galaxy S23 e iPhone 14 Pro).
-O WebKit (projeto `iphone-14-pro`) precisa das libs do sistema: `sudo npx playwright install-deps webkit`.
+Testes: `docker compose --profile test up -d db_test` (Postgres em memória na porta 5433), depois
+`cd backend && uv run pytest -q`; `cd frontend && npm run test:unit && npx playwright test`
+(desktop, Galaxy S23 e iPhone 14 Pro). O WebKit (projeto `iphone-14-pro`) precisa das libs do
+sistema: `sudo npx playwright install-deps webkit`.
 
 ## Deploy
 

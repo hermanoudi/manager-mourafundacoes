@@ -16,7 +16,8 @@ Sistema de gestão da Moura Fundações. Spec: `docs/superpowers/specs/2026-11-0
 - Ruff só em `backend/src backend/tests backend/migrations backend/scripts` (nunca `ruff format` no repo).
 
 ## Comandos
-- Banco de teste: `docker compose up -d db_test`
+- Tudo local: `docker compose up -d --build` (web :3100, api :8100, db :5440)
+- Banco de teste: `docker compose --profile test up -d db_test` (porta 5433)
 - Backend: `cd backend && uv run pytest -q` · `uv run ruff check src tests migrations scripts`
 - Frontend: `cd frontend && npm run test:unit` · `npx playwright test` · `npm run lint` · `npm run build`
 
