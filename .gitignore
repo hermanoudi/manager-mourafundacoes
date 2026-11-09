@@ -10,3 +10,4 @@ playwright-report/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.playwright-cli/
