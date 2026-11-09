@@ -30,6 +30,17 @@ function useIsDesktop() {
   );
 }
 
+function Card({
+  interactive, onClick, children,
+}: { interactive: boolean; onClick: () => void; children: React.ReactNode }) {
+  const cls = "block min-h-11 w-full rounded-lg bg-white p-3 text-left shadow-sm";
+  return interactive ? (
+    <button type="button" onClick={onClick} className={cls}>{children}</button>
+  ) : (
+    <div className={cls}>{children}</div>
+  );
+}
+
 function cell<T>(c: Column<T>, item: T): React.ReactNode {
   return c.render ? c.render(item) : String((item as Record<string, unknown>)[c.key] ?? "");
 }
@@ -91,18 +102,14 @@ export function DataList<T>({
         <ul className="space-y-2">
           {items.map((item) => (
             <li key={getKey(item)}>
-              <button
-                type="button"
-                onClick={() => onSelect?.(item)}
-                className="block min-h-11 w-full rounded-lg bg-white p-3 text-left shadow-sm"
-              >
+              <Card interactive={!!onSelect} onClick={() => onSelect?.(item)}>
                 {columns.map((c, i) => (
                   <div key={c.key} className={i === 0 ? "font-medium" : "text-sm text-stone-600"}>
-                    {i > 0 && <span className="text-stone-400">{c.label}: </span>}
+                    {i > 0 && c.label && <span className="text-stone-400">{c.label}: </span>}
                     {cell(c, item)}
                   </div>
                 ))}
-              </button>
+              </Card>
             </li>
           ))}
         </ul>

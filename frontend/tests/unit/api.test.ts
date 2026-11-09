@@ -24,7 +24,7 @@ describe("api()", () => {
 
   it("rejeita ApiError com status e code do corpo", async () => {
     mockFetch(409, { detail: "Documento já cadastrado", code: "duplicate_document" });
-    const err = await api("/api/customers", { method: "POST" }).catch((e) => e);
+    const err = (await api("/api/customers", { method: "POST" }).catch((e) => e)) as ApiError;
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(409);
     expect(err.code).toBe("duplicate_document");
@@ -38,7 +38,7 @@ describe("api()", () => {
 
   it("não redireciona em 401 no login", async () => {
     mockFetch(401, { detail: "E-mail ou senha inválidos", code: "invalid_credentials" });
-    const err = await api("/api/auth/login", { method: "POST" }).catch((e) => e);
+    const err = (await api("/api/auth/login", { method: "POST" }).catch((e) => e)) as ApiError;
     expect(err.code).toBe("invalid_credentials");
     expect(assign).not.toHaveBeenCalled();
   });
