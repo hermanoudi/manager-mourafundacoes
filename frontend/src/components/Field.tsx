@@ -31,7 +31,7 @@ export function SubmitBar({ busy, error, saved }: { busy: boolean; error?: strin
       <button
         type="submit"
         disabled={busy}
-        className="min-h-11 w-full rounded-lg bg-brand px-4 font-medium text-white disabled:opacity-60 md:w-auto"
+        className="min-h-11 w-full rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white disabled:opacity-60 md:w-auto"
       >
         {busy ? "Salvando…" : "Salvar"}
       </button>

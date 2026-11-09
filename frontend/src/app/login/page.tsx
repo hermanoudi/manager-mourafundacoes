@@ -1,7 +1,10 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Suspense, useState } from "react";
+
+import { PasswordInput } from "@/components/PasswordInput";
 
 import { ApiError } from "@/lib/api";
 import { login, safeNext } from "@/lib/auth";
@@ -30,7 +33,8 @@ function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-6 shadow">
-      <h1 className="text-xl font-semibold">Moura Gestão</h1>
+      <Image src="/brand/logo.png" alt="Moura Fundações" width={239} height={81} unoptimized priority className="mx-auto h-14 w-auto" />
+      <h1 className="text-center text-lg font-semibold text-secondary-dark">Moura Gestão</h1>
       <label className="block text-sm font-medium">
         E-mail
         <input
@@ -43,16 +47,12 @@ function LoginForm() {
           className="mt-1 block min-h-11 w-full rounded-lg border border-stone-300 px-3 text-base"
         />
       </label>
-      <label className="block text-sm font-medium">
-        Senha
-        <input
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="mt-1 block min-h-11 w-full rounded-lg border border-stone-300 px-3 text-base"
-        />
-      </label>
+      <div className="text-sm font-medium">
+        <label htmlFor="password">Senha</label>
+        <div className="mt-1">
+          <PasswordInput id="password" name="password" autoComplete="current-password" required />
+        </div>
+      </div>
       {error && (
         <p role="alert" className="text-sm text-red-700">
           {error}
@@ -61,7 +61,7 @@ function LoginForm() {
       <button
         type="submit"
         disabled={busy}
-        className="min-h-11 w-full rounded-lg bg-brand px-4 font-medium text-white disabled:opacity-60"
+        className="min-h-11 w-full rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white disabled:opacity-60"
       >
         {busy ? "Entrando…" : "Entrar"}
       </button>

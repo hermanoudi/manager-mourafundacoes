@@ -35,7 +35,7 @@ export default function UsuariosPage() {
         <button
           type="button"
           onClick={() => setCreating((v) => !v)}
-          className="min-h-11 rounded-lg bg-brand px-4 font-medium text-white"
+          className="min-h-11 rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white"
         >
           Novo usuário
         </button>

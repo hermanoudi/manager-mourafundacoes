@@ -57,7 +57,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="min-h-11 rounded-lg bg-brand px-4 font-medium text-white disabled:opacity-60"
+        className="min-h-11 rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white disabled:opacity-60"
       >
         Criar usuário
       </button>

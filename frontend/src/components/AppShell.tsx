@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -32,7 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-1 md:flex-row flex-col">
       <aside className="hidden w-60 shrink-0 flex-col border-r bg-white p-3 md:flex">
-        <div className="mb-4 px-3 py-2 text-lg font-semibold text-brand">Moura Gestão</div>
+        <div className="mb-4 px-3 py-2">
+          <Image src="/brand/logo.png" alt="Moura Fundações" width={239} height={81} unoptimized className="h-10 w-auto" />
+        </div>
         <nav aria-label="Principal" className="flex flex-1 flex-col gap-1">
           {items.map((i) => (
             <Link
@@ -40,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href={i.href}
               aria-current={active(i.href) ? "page" : undefined}
               className={`flex min-h-11 items-center gap-3 rounded-lg px-3 ${
-                active(i.href) ? "bg-amber-50 font-medium text-brand" : "hover:bg-stone-100"
+                active(i.href) ? "bg-brand-soft font-medium text-brand" : "hover:bg-stone-100"
               }`}
             >
               <Icon name={i.icon} />
@@ -58,7 +61,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b bg-white px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:hidden">
-          <span className="truncate text-sm">{me?.name}</span>
+          <Image src="/brand/logo.png" alt="Moura Fundações" width={239} height={81} unoptimized className="h-8 w-auto" />
+          <span className="min-w-0 flex-1 truncate text-right text-sm">{me?.name}</span>
           <button onClick={logout} className="min-h-11 px-2 text-sm font-medium text-brand">
             Sair
           </button>

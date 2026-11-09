@@ -12,6 +12,6 @@ export function proxy(request: NextRequest) {
 // O manifest e os ícones são buscados sem credenciais: redirecioná-los quebra a instalação do PWA.
 export const config = {
   matcher: [
-    "/((?!api|_next|icons|login|manifest\\.webmanifest|favicon\\.ico|apple-touch-icon\\.png).*)",
+    "/((?!api|_next|icons|brand|login|manifest\\.webmanifest|favicon\\.ico|apple-touch-icon\\.png).*)",
   ],
 };

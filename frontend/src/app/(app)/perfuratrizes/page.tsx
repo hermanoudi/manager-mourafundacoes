@@ -29,7 +29,7 @@ export default function PerfuratrizesPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Perfuratrizes</h1>
         {canWrite && (
-          <Link href="/perfuratrizes/novo" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-white">
+          <Link href="/perfuratrizes/novo" className="inline-flex min-h-11 items-center rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white">
             Nova perfuratriz
           </Link>
         )}

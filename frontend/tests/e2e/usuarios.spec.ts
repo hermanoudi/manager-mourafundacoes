@@ -23,7 +23,7 @@ test("admin cria operador, desativa e o login falha", async ({ page, browser }) 
   const p2 = await ctx.newPage();
   await p2.goto("/login");
   await p2.getByLabel("E-mail").fill(email);
-  await p2.getByLabel("Senha").fill(PASSWORD);
+  await p2.getByLabel("Senha", { exact: true }).fill(PASSWORD);
   await p2.getByRole("button", { name: "Entrar" }).click();
   await expect(p2.locator("form [role=alert]")).toHaveText("E-mail ou senha inválidos");
   await ctx.close();

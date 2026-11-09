@@ -29,7 +29,7 @@ export default function ClientesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Clientes</h1>
-        <Link href="/clientes/novo" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-white">
+        <Link href="/clientes/novo" className="inline-flex min-h-11 items-center rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white">
           Novo cliente
         </Link>
       </div>
