@@ -9,6 +9,7 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
+  expect: { timeout: process.env.CI ? 10_000 : 5_000 },
   use: { baseURL: "http://localhost:3000", trace: "retain-on-failure" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
@@ -40,8 +41,10 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run dev",
+      // No CI usa o build de produção (sem compilação sob demanda, que estourava timeouts).
+      command: process.env.CI ? "npm run build && npm run start" : "npm run dev",
       url: "http://localhost:3000/login",
+      timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: { API_URL: "http://localhost:8000" },
     },
