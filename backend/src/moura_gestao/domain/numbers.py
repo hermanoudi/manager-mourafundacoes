@@ -4,12 +4,12 @@ _TWO = Decimal("0.01")
 
 
 def parse_decimal_br(value: str | int | Decimal) -> Decimal:
-    if isinstance(value, bool) or isinstance(value, float):
-        raise ValueError("float não é aceito")
+    if isinstance(value, bool | float):
+        raise ValueError("float não é aceito")  # noqa: TRY004
     if isinstance(value, int | Decimal):
         return Decimal(value)
     if not isinstance(value, str):
-        raise ValueError("valor inválido")
+        raise ValueError("valor inválido")  # noqa: TRY004
     text = value.strip()
     if not text:
         raise ValueError("valor vazio")

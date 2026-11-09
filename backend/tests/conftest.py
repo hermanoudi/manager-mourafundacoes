@@ -9,7 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from moura_gestao.infrastructure.config import Settings
-from moura_gestao.infrastructure.models import Base
+from moura_gestao.infrastructure.models import Base, UserModel
+from moura_gestao.infrastructure.security import Argon2Hasher
 from moura_gestao.interfaces.http.app import create_app
 
 TEST_URL = os.environ.get(
@@ -47,10 +48,55 @@ async def db_session(settings: Settings):
 
 
 @pytest.fixture
-async def client(settings: Settings, db_session: AsyncSession):
-    app = create_app(settings)
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as c:
+async def app(settings: Settings, db_session: AsyncSession):
+    application = create_app(settings)
+    yield application
+    await application.state.engine.dispose()
+
+
+@pytest.fixture
+async def client(app):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
         yield c
-    await app.state.engine.dispose()
+
+
+PASSWORD = "senha-forte-123"
+
+
+@pytest.fixture
+def make_user(db_session: AsyncSession):
+    async def _make(
+        email: str, role: str = "operator", *, name: str = "Usuário", active: bool = True,
+        password: str = PASSWORD,
+    ) -> UserModel:
+        user = UserModel(
+            name=name, email=email.strip().lower(), role=role, active=active,
+            password_hash=Argon2Hasher().hash(password),
+        )
+        db_session.add(user)
+        await db_session.commit()
+        return user
+
+    return _make
+
+
+@pytest.fixture
+def login_as(app, make_user):
+    clients: list[httpx.AsyncClient] = []
+
+    async def _login(role: str) -> httpx.AsyncClient:
+        await make_user(f"{role}@moura.test", role)
+        c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+        clients.append(c)
+        resp = await c.post(
+            "/api/auth/login", json={"email": f"{role}@moura.test", "password": PASSWORD}
+        )
+        assert resp.status_code == 200, resp.text
+        return c
+
+    yield _login
+    # clients closed by GC; explicit close below
+    import asyncio
+
+    for c in clients:
+        asyncio.get_event_loop().create_task(c.aclose())
