@@ -58,3 +58,11 @@ async def test_patch_status_to_maintenance(login_as):
     assert resp.json()["status"] == "maintenance"
     got = (await c.get(f"/api/drill-rigs/{created['id']}")).json()
     assert got["status"] == "maintenance"
+
+
+async def test_patch_null_required_field_422(login_as):
+    c = await login_as("office")
+    created = (await c.post("/api/drill-rigs", json=rig())).json()
+    for field in ("name", "max_diameter_cm", "max_depth_m", "status"):
+        resp = await c.patch(f"/api/drill-rigs/{created['id']}", json={field: None})
+        assert resp.status_code == 422, field

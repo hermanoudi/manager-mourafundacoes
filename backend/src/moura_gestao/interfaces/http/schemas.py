@@ -10,6 +10,7 @@ from pydantic import (
     Field,
     PlainSerializer,
     field_validator,
+    model_validator,
 )
 
 from moura_gestao.domain.customers import UFS
@@ -29,6 +30,12 @@ def _email(v: str) -> str:
 
 
 Email = Annotated[str, AfterValidator(_email)]
+
+
+def _reject_null(model: BaseModel, required: tuple[str, ...]) -> None:
+    for name in required:
+        if name in model.model_fields_set and getattr(model, name) is None:
+            raise ValueError(f"{name} não pode ser nulo")
 
 
 class LoginIn(BaseModel):
@@ -56,6 +63,11 @@ class UserUpdate(BaseModel):
     role: Role | None = None
     active: bool | None = None
     password: str | None = Field(default=None, min_length=10, max_length=128)
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> "UserUpdate":
+        _reject_null(self, ("name", "role", "active", "password"))
+        return self
 
 
 def _digits(v: str) -> str:
@@ -134,6 +146,11 @@ class CustomerPatch(BaseModel):
     active: bool | None = None
     address: AddressIn | None = None
 
+    @model_validator(mode="after")
+    def _no_nulls(self) -> "CustomerPatch":
+        _reject_null(self, ("document", "name", "active", "address"))
+        return self
+
 
 class AddressOut(BaseModel):
     zip_code: str
@@ -188,6 +205,11 @@ class DrillRigPatch(BaseModel):
     max_depth_m: Depth | None = None
     status: RigStatus | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> "DrillRigPatch":
+        _reject_null(self, ("name", "max_diameter_cm", "max_depth_m", "status"))
+        return self
 
 
 class DrillRigOut(DrillRigBase):

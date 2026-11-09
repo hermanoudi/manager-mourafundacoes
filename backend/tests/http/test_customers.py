@@ -115,3 +115,11 @@ async def test_operator_forbidden_403(login_as):
     c = await login_as("operator")
     assert (await c.get("/api/customers")).status_code == 403
     assert (await c.post("/api/customers", json=payload())).status_code == 403
+
+
+async def test_patch_null_required_field_422(login_as):
+    c = await login_as("office")
+    created = (await c.post("/api/customers", json=payload())).json()
+    for field in ("name", "document", "active"):
+        resp = await c.patch(f"/api/customers/{created['id']}", json={field: None})
+        assert resp.status_code == 422, field
