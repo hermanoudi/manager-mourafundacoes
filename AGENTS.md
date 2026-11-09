@@ -19,3 +19,8 @@ Sistema de gestão da Moura Fundações. Spec: `docs/superpowers/specs/2026-11-0
 - Banco de teste: `docker compose up -d db_test`
 - Backend: `cd backend && uv run pytest -q` · `uv run ruff check src tests migrations scripts`
 - Frontend: `cd frontend && npm run test:unit` · `npx playwright test` · `npm run lint` · `npm run build`
+
+## Deploy
+- API + Postgres no Railway (root `backend`, Dockerfile, healthcheck `/api/health`; variáveis `DATABASE_URL`, `JWT_SECRET`, `COOKIE_SECURE=true`, `ENVIRONMENT=prod`).
+- Front na Vercel (root `frontend`, variável `API_URL`); o Next reescreve `/api/*` para a API (cookie `mg_session` de primeira parte).
+- Next 16: o antigo `middleware.ts` chama-se `src/proxy.ts`; leia `frontend/node_modules/next/dist/docs/` antes de mexer em convenções do Next.
