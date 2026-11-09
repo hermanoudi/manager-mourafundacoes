@@ -9,7 +9,7 @@ test("login e logout", async ({ page }) => {
   await page.getByLabel("Senha").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByRole("heading", { name: "Início" })).toBeVisible();
-  await expect(page.getByText("E2E Admin").first()).toBeVisible();
+  await expect(page.getByText("E2E Admin").locator("visible=true")).toBeVisible();
 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Início" })).toBeVisible();
