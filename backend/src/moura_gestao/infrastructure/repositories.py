@@ -2,8 +2,10 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from moura_gestao.application.pagination import Page, PageParams
+from moura_gestao.domain.customers import Address, Customer, CustomerKind
+from moura_gestao.domain.documents import normalize_document
 from moura_gestao.domain.users import Role, User
-from moura_gestao.infrastructure.models import UserModel
+from moura_gestao.infrastructure.models import CustomerModel, UserModel
 
 
 def _user(m: UserModel) -> User:
@@ -60,3 +62,78 @@ class SqlUserRepository:
             UserModel.role == "admin", UserModel.active.is_(True)
         )
         return (await self._s.execute(stmt)).scalar_one()
+
+
+_ADDR = ("zip_code", "street", "number", "complement", "district", "city", "state", "ibge_city_code")
+_PLAIN = (
+    "name", "trade_name", "state_registration", "municipal_registration", "email", "phone",
+    "contact_name", "notes", "active",
+)
+
+
+def _customer(m: CustomerModel) -> Customer:
+    return Customer(
+        id=m.id, kind=CustomerKind(m.kind), document=m.document, name=m.name,
+        trade_name=m.trade_name, state_registration=m.state_registration,
+        municipal_registration=m.municipal_registration, email=m.email, phone=m.phone,
+        contact_name=m.contact_name, notes=m.notes, active=m.active, created_at=m.created_at,
+        address=Address(**{k: getattr(m, k) for k in _ADDR}),
+    )
+
+
+def _apply(m: CustomerModel, c: Customer) -> None:
+    m.kind, m.document = c.kind.value, c.document
+    for k in _PLAIN:
+        setattr(m, k, getattr(c, k))
+    for k in _ADDR:
+        setattr(m, k, getattr(c.address, k))
+
+
+class SqlCustomerRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+
+    async def add(self, customer: Customer) -> Customer:
+        m = CustomerModel()
+        _apply(m, customer)
+        self._s.add(m)
+        await self._s.flush()
+        await self._s.refresh(m)
+        return _customer(m)
+
+    async def get(self, customer_id: int) -> Customer | None:
+        m = await self._s.get(CustomerModel, customer_id)
+        return _customer(m) if m else None
+
+    async def get_by_document(self, document: str) -> Customer | None:
+        stmt = select(CustomerModel).where(CustomerModel.document == document)
+        m = (await self._s.execute(stmt)).scalar()
+        return _customer(m) if m else None
+
+    async def update(self, customer: Customer) -> Customer:
+        m = await self._s.get(CustomerModel, customer.id)
+        assert m is not None
+        _apply(m, customer)
+        await self._s.flush()
+        await self._s.refresh(m)
+        return _customer(m)
+
+    async def list(self, params: PageParams) -> Page[Customer]:
+        stmt = select(CustomerModel)
+        if params.q:
+            like = f"%{params.q.strip()}%"
+            conds = [CustomerModel.name.ilike(like), CustomerModel.trade_name.ilike(like)]
+            doc = normalize_document(params.q)
+            if doc:
+                conds.append(CustomerModel.document.like(f"{doc}%"))
+            stmt = stmt.where(or_(*conds))
+        total = (await self._s.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+        rows = (
+            await self._s.execute(
+                stmt.order_by(CustomerModel.name).offset(params.offset).limit(params.page_size)
+            )
+        ).scalars()
+        return Page(
+            items=[_customer(m) for m in rows], total=total, page=params.page,
+            page_size=params.page_size,
+        )

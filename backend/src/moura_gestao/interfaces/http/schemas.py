@@ -1,8 +1,11 @@
 import re
+from datetime import datetime
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
+from moura_gestao.domain.customers import UFS
+from moura_gestao.domain.documents import document_kind
 from moura_gestao.domain.users import Role
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -43,3 +46,99 @@ class UserUpdate(BaseModel):
     role: Role | None = None
     active: bool | None = None
     password: str | None = Field(default=None, min_length=10, max_length=128)
+
+
+def _digits(v: str) -> str:
+    return re.sub(r"\D", "", v)
+
+
+class AddressIn(BaseModel):
+    zip_code: str
+    street: str = Field(min_length=1, max_length=160)
+    number: str = Field(min_length=1, max_length=20)
+    complement: str | None = Field(default=None, max_length=80)
+    district: str = Field(min_length=1, max_length=80)
+    city: str = Field(min_length=1, max_length=80)
+    state: str
+    ibge_city_code: str | None = None
+
+    @field_validator("zip_code")
+    @classmethod
+    def _zip(cls, v: str) -> str:
+        d = _digits(v)
+        if len(d) != 8:
+            raise ValueError("CEP inválido")
+        return d
+
+    @field_validator("state")
+    @classmethod
+    def _state(cls, v: str) -> str:
+        v = v.strip().upper()
+        if v not in UFS:
+            raise ValueError("UF inválida")
+        return v
+
+    @field_validator("ibge_city_code")
+    @classmethod
+    def _ibge(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        d = _digits(v)
+        if len(d) != 7:
+            raise ValueError("código IBGE inválido")
+        return d
+
+
+def _valid_document(v: str) -> str:
+    document_kind(v)  # levanta ValueError se inválido
+    return v
+
+
+class CustomerBase(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    trade_name: str | None = Field(default=None, max_length=160)
+    state_registration: str | None = Field(default=None, max_length=30)
+    municipal_registration: str | None = Field(default=None, max_length=30)
+    email: str | None = Field(default=None, max_length=254)
+    phone: str | None = Field(default=None, max_length=30)
+    contact_name: str | None = Field(default=None, max_length=120)
+    notes: str | None = None
+    active: bool = True
+
+
+class CustomerIn(CustomerBase):
+    document: Annotated[str, AfterValidator(_valid_document)]
+    address: AddressIn
+
+
+class CustomerPatch(BaseModel):
+    document: Annotated[str, AfterValidator(_valid_document)] | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    trade_name: str | None = Field(default=None, max_length=160)
+    state_registration: str | None = Field(default=None, max_length=30)
+    municipal_registration: str | None = Field(default=None, max_length=30)
+    email: str | None = Field(default=None, max_length=254)
+    phone: str | None = Field(default=None, max_length=30)
+    contact_name: str | None = Field(default=None, max_length=120)
+    notes: str | None = None
+    active: bool | None = None
+    address: AddressIn | None = None
+
+
+class AddressOut(BaseModel):
+    zip_code: str
+    street: str
+    number: str
+    complement: str | None
+    district: str
+    city: str
+    state: str
+    ibge_city_code: str | None
+
+
+class CustomerOut(CustomerBase):
+    id: int
+    kind: str
+    document: str
+    address: AddressOut
+    created_at: datetime
