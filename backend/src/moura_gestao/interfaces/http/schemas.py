@@ -1,11 +1,21 @@
 import re
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+    field_validator,
+)
 
 from moura_gestao.domain.customers import UFS
 from moura_gestao.domain.documents import document_kind
+from moura_gestao.domain.drill_rigs import RigStatus
+from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure
 from moura_gestao.domain.users import Role
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -142,3 +152,44 @@ class CustomerOut(CustomerBase):
     document: str
     address: AddressOut
     created_at: datetime
+
+
+def _depth(v: str | int | Decimal) -> Decimal:
+    value = quantize_measure(parse_decimal_br(v))
+    if not (Decimal(0) < value <= Decimal(40)):
+        raise ValueError("profundidade deve ser maior que 0 e no máximo 40 m")
+    return value
+
+
+Depth = Annotated[Decimal, BeforeValidator(_depth)]
+
+
+class DrillRigBase(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    manufacturer: str | None = Field(default=None, max_length=80)
+    model: str | None = Field(default=None, max_length=80)
+    serial_number: str | None = Field(default=None, max_length=60)
+    max_diameter_cm: int = Field(ge=20, le=120)
+    max_depth_m: Depth
+    status: RigStatus
+    notes: str | None = None
+
+
+class DrillRigIn(DrillRigBase):
+    pass
+
+
+class DrillRigPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    manufacturer: str | None = Field(default=None, max_length=80)
+    model: str | None = Field(default=None, max_length=80)
+    serial_number: str | None = Field(default=None, max_length=60)
+    max_diameter_cm: int | None = Field(default=None, ge=20, le=120)
+    max_depth_m: Depth | None = None
+    status: RigStatus | None = None
+    notes: str | None = None
+
+
+class DrillRigOut(DrillRigBase):
+    id: int
+    max_depth_m: Annotated[Decimal, PlainSerializer(lambda d: f"{d:.2f}", return_type=str)]
