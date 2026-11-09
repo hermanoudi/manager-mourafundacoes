@@ -1,0 +1,39 @@
+[project]
+name = "moura-gestao"
+version = "0.1.0"
+description = "Sistema de gestão da Moura Fundações"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "pydantic-settings",
+    "sqlalchemy[asyncio]",
+    "psycopg[binary]",
+    "alembic>=1.20.1",
+    "pyjwt",
+    "pwdlib[argon2]",
+    "email-validator",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "httpx", "ruff"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/moura_gestao"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = ["FURB157"]

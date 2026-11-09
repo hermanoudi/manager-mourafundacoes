@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: moura
+      POSTGRES_PASSWORD: moura
+      POSTGRES_DB: moura
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  db_test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: moura
+      POSTGRES_PASSWORD: moura
+      POSTGRES_DB: moura
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+volumes:
+  pgdata:

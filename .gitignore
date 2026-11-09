@@ -1,2 +1,12 @@
-.worktrees/
+.env
+.venv/
+node_modules/
+.next/
+__pycache__/
 .superpowers/
+.worktrees/
+test-results/
+playwright-report/
+*.pyc
+.pytest_cache/
+.ruff_cache/
