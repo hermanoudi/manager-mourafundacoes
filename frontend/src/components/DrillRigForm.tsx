@@ -13,22 +13,20 @@ import { DecimalInput } from "./DecimalInput";
 import { Field, inputClass, SubmitBar } from "./Field";
 
 export type RigOut = {
-  id: number; name: string; manufacturer: string | null; model: string | null;
-  serial_number: string | null; max_diameter_cm: number; max_depth_m: string;
+  id: number; name: string; max_diameter_cm: number; max_depth_m: string;
   status: "active" | "maintenance" | "inactive"; notes: string | null;
 };
 
 export const STATUS_LABEL = { active: "Ativa", maintenance: "Manutenção", inactive: "Inativa" } as const;
 
 const EMPTY: Values = {
-  name: "", manufacturer: "", model: "", serial_number: "", max_diameter_cm: "", max_depth_m: "",
+  name: "", max_diameter_cm: "", max_depth_m: "",
   status: "active", notes: "",
 };
 
 function toValues(r: RigOut): Values {
   return {
-    name: r.name, manufacturer: r.manufacturer ?? "", model: r.model ?? "",
-    serial_number: r.serial_number ?? "", max_diameter_cm: String(r.max_diameter_cm),
+    name: r.name, max_diameter_cm: String(r.max_diameter_cm),
     max_depth_m: formatDecimalBR(r.max_depth_m), status: r.status, notes: r.notes ?? "",
   };
 }
@@ -52,8 +50,7 @@ export function DrillRigForm({
     setFormError(null);
     setSaved(false);
     const body = JSON.stringify({
-      name: v.name.trim(), manufacturer: nullIfEmpty(v.manufacturer), model: nullIfEmpty(v.model),
-      serial_number: nullIfEmpty(v.serial_number), max_diameter_cm: Number(v.max_diameter_cm),
+      name: v.name.trim(), max_diameter_cm: Number(v.max_diameter_cm),
       max_depth_m: toApiDecimal(v.max_depth_m), status: v.status, notes: nullIfEmpty(v.notes),
     });
     try {
@@ -75,17 +72,6 @@ export function DrillRigForm({
     <form onSubmit={handleSubmit(onSubmit)} className="max-w-xl space-y-4" noValidate>
       <Field label="Nome" error={errors.name?.message}>
         <input className={inputClass} {...register("name")} />
-      </Field>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Fabricante">
-          <input className={inputClass} {...register("manufacturer")} />
-        </Field>
-        <Field label="Modelo">
-          <input className={inputClass} {...register("model")} />
-        </Field>
-      </div>
-      <Field label="Nº de série">
-        <input className={inputClass} {...register("serial_number")} />
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Diâmetro máx. (cm)" error={errors.max_diameter_cm?.message}>

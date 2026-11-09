@@ -29,9 +29,6 @@ export type CustomerForm = z.infer<typeof customerSchema>;
 
 export const rigSchema = z.object({
   name: req("Informe o nome"),
-  manufacturer: z.string(),
-  model: z.string(),
-  serial_number: z.string(),
   max_diameter_cm: z.string().refine((v) => /^\d+$/.test(v) && +v >= 20 && +v <= 120, "Entre 20 e 120 cm"),
   max_depth_m: z.string().refine((v) => /^\d+(,\d{1,2})?$/.test(v) && +v.replace(",", ".") > 0 && +v.replace(",", ".") <= 40, "Entre 0 e 40 m"),
   status: z.enum(["active", "maintenance", "inactive"]),

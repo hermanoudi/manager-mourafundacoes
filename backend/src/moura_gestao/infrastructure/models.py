@@ -86,9 +86,6 @@ class DrillRigModel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(60))
-    manufacturer: Mapped[str | None] = mapped_column(String(80))
-    model: Mapped[str | None] = mapped_column(String(80))
-    serial_number: Mapped[str | None] = mapped_column(String(60))
     max_diameter_cm: Mapped[int]
     max_depth_m: Mapped[Decimal] = mapped_column(Numeric(5, 2))
     status: Mapped[str] = mapped_column(String(12))

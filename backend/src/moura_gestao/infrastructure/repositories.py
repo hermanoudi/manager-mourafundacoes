@@ -140,9 +140,7 @@ class SqlCustomerRepository:
         )
 
 
-_RIG = (
-    "name", "manufacturer", "model", "serial_number", "max_diameter_cm", "max_depth_m", "notes",
-)
+_RIG = ("name", "max_diameter_cm", "max_depth_m", "notes")
 
 
 def _rig(m: DrillRigModel) -> DrillRig:

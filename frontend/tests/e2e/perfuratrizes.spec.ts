@@ -6,6 +6,9 @@ test("office cria perfuratriz e muda status", async ({ page }) => {
   await loginAs(page, "office");
   const name = uniqueName("Perfuratriz");
   await page.goto("/perfuratrizes/novo");
+  for (const removed of ["Fabricante", "Modelo", "Nº de série"]) {
+    await expect(page.getByLabel(removed)).toHaveCount(0);
+  }
   await page.getByLabel("Nome").fill(name);
   await page.getByLabel("Diâmetro máx. (cm)").fill("80");
   await page.getByLabel("Profundidade máx. (m)").fill("22,5");

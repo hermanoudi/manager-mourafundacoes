@@ -66,3 +66,16 @@ async def test_patch_null_required_field_422(login_as):
     for field in ("name", "max_diameter_cm", "max_depth_m", "status"):
         resp = await c.patch(f"/api/drill-rigs/{created['id']}", json={field: None})
         assert resp.status_code == 422, field
+
+
+async def test_rig_has_no_manufacturer_model_or_serial(login_as):
+    c = await login_as("office")
+    resp = await c.post(
+        "/api/drill-rigs", json=rig(manufacturer="Casagrande", model="B300", serial_number="123")
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    for removed in ("manufacturer", "model", "serial_number"):
+        assert removed not in body
+    got = (await c.get(f"/api/drill-rigs/{body['id']}")).json()
+    assert not {"manufacturer", "model", "serial_number"} & got.keys()

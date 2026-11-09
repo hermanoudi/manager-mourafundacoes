@@ -183,9 +183,6 @@ Depth = Annotated[Decimal, BeforeValidator(_depth)]
 
 class DrillRigBase(BaseModel):
     name: str = Field(min_length=1, max_length=60)
-    manufacturer: str | None = Field(default=None, max_length=80)
-    model: str | None = Field(default=None, max_length=80)
-    serial_number: str | None = Field(default=None, max_length=60)
     max_diameter_cm: int = Field(ge=20, le=120)
     max_depth_m: Depth
     status: RigStatus
@@ -198,9 +195,6 @@ class DrillRigIn(DrillRigBase):
 
 class DrillRigPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
-    manufacturer: str | None = Field(default=None, max_length=80)
-    model: str | None = Field(default=None, max_length=80)
-    serial_number: str | None = Field(default=None, max_length=60)
     max_diameter_cm: int | None = Field(default=None, ge=20, le=120)
     max_depth_m: Depth | None = None
     status: RigStatus | None = None

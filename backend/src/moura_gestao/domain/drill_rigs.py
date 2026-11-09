@@ -17,8 +17,5 @@ class DrillRig:
     max_diameter_cm: int
     max_depth_m: Decimal
     status: RigStatus
-    manufacturer: str | None = None
-    model: str | None = None
-    serial_number: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
