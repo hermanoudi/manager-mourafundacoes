@@ -13,6 +13,9 @@ const ICONS: Record<string, string> = {
   users: "M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM4 21a8 8 0 0 1 16 0z",
   rig: "M11 2h2v14h-2zM6 16h12l2 6H4zM8 6h8v2H8z",
   key: "M7 14a4 4 0 1 1 3.9-5H21v3h-2v2h-3v-2h-5.1A4 4 0 0 1 7 14z",
+  job: "M3 21V9l6-4v4l6-4v4l6-4v16zM6 17h3v-3H6zM11 17h3v-3h-3z",
+  ruler: "M2 8h20v8H2zM5 8v4h2V8zM9 8v3h2V8zM13 8v4h2V8zM17 8v3h2V8z",
+  price: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v1.5h2V11h-4v1h2.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.500 1.500H13V18h-2v-1.500H9V14h4v-1h-2.500A1.500 1.500 0 0 1 9 11.500V10a1.500 1.500 0 0 1 1.500-1.500H11z",
 };
 
 function Icon({ name }: { name: string }) {
@@ -70,14 +73,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-4 pb-24 md:pb-4">{children}</main>
         <nav
           aria-label="Principal"
-          className="fixed inset-x-0 bottom-0 flex border-t bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
+          className="fixed inset-x-0 bottom-0 flex overflow-x-auto border-t bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
         >
           {items.map((i) => (
             <Link
               key={i.href}
               href={i.href}
               aria-current={active(i.href) ? "page" : undefined}
-              className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs ${
+              className={`flex min-h-14 min-w-[4.75rem] flex-1 shrink-0 flex-col items-center justify-center gap-0.5 px-1 text-center text-xs leading-tight ${
                 active(i.href) ? "font-medium text-brand" : "text-stone-600"
               }`}
             >

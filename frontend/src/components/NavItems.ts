@@ -4,6 +4,9 @@ export type NavItem = { href: string; label: string; icon: string; roles: Role[]
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Início", icon: "home", roles: ["admin", "office", "operator"] },
+  { href: "/obras", label: "Obras", icon: "job", roles: ["admin", "office", "operator"] },
+  { href: "/medicoes", label: "Medições", icon: "ruler", roles: ["admin", "office", "operator"] },
+  { href: "/tabela-precos", label: "Tabela de preços", icon: "price", roles: ["admin", "office"] },
   { href: "/clientes", label: "Clientes", icon: "users", roles: ["admin", "office"] },
   {
     href: "/perfuratrizes",
