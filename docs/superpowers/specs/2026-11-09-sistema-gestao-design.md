@@ -87,7 +87,7 @@ usável no notebook, no **Galaxy S23** e no **iPhone 14 Pro**.
 | Fase | Entrega | Plano |
 |---|---|---|
 | **P1 Fundação** | monorepo, API, auth/papéis, usuários, clientes, perfuratrizes, PWA shell, deploy | `docs/superpowers/plans/2026-11-09-p1-fundacao.md` |
-| P2 Obras + medições | obras com tabela contratada, alocação, medições (digitação + foto/IA), aprovação | a escrever |
+| P2 Obras + medições | obras com tabela contratada, alocação, medições (digitação + foto/IA), aprovação | `docs/superpowers/plans/2026-11-10-p2-obras-medicoes.md` |
 | P3 Financeiro | contas a pagar, contas a receber manual, fornecedores, categorias | a escrever |
 | P4 Faturamento | boletim → NFS-e → boleto Sicoob → título a receber, baixa automática | a escrever |
 | P5 Integração | orçamento aprovado no agente → obra; relatórios | a escrever |
