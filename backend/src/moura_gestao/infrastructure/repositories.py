@@ -1,15 +1,20 @@
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from moura_gestao.application.pagination import Page, PageParams
 from moura_gestao.domain.customers import Address, Customer, CustomerKind
 from moura_gestao.domain.documents import normalize_document
 from moura_gestao.domain.drill_rigs import DrillRig, RigStatus
+from moura_gestao.domain.jobs import Job, JobStatus, JobSummary
 from moura_gestao.domain.pricing import PriceItem, PriceTable
 from moura_gestao.domain.users import Role, User
 from moura_gestao.infrastructure.models import (
     CustomerModel,
     DrillRigModel,
+    JobModel,
+    JobOperatorModel,
+    JobPriceModel,
+    JobRigModel,
     PriceTableItemModel,
     PriceTableModel,
     UserModel,
@@ -48,6 +53,14 @@ class SqlUserRepository:
         m.password_hash = user.password_hash
         await self._s.flush()
         return _user(m)
+
+    async def list_active_operators(self) -> list[User]:
+        stmt = (
+            select(UserModel)
+            .where(UserModel.role == "operator", UserModel.active.is_(True))
+            .order_by(UserModel.name, UserModel.id)
+        )
+        return [_user(m) for m in (await self._s.execute(stmt)).scalars()]
 
     async def list(self, params: PageParams) -> Page[User]:
         stmt = select(UserModel)
@@ -248,3 +261,162 @@ class SqlPriceTableRepository:
         await self._s.flush()
         self._s.expire_all()
         return await self.get()
+
+
+def _job(
+    m: JobModel, customer_name: str, items: list[PriceItem], rigs: list[DrillRig],
+    operators: list[User],
+) -> Job:
+    return Job(
+        id=m.id, name=m.name, customer_id=m.customer_id,
+        address=Address(**{k: getattr(m, k) for k in _ADDR}),
+        status=JobStatus(m.status), start_date=m.start_date, end_date=m.end_date,
+        mobilization_fee=m.mobilization_fee, minimum_amount=m.minimum_amount,
+        max_tabled_depth_m=m.max_tabled_depth_m, notes=m.notes, items=items, rigs=rigs,
+        operators=operators, customer_name=customer_name, created_at=m.created_at,
+    )
+
+
+class SqlJobRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+
+    @staticmethod
+    def _apply(m: JobModel, job: Job) -> None:
+        m.name, m.customer_id, m.status = job.name, job.customer_id, job.status.value
+        m.start_date, m.end_date, m.notes = job.start_date, job.end_date, job.notes
+        m.mobilization_fee, m.minimum_amount = job.mobilization_fee, job.minimum_amount
+        m.max_tabled_depth_m = job.max_tabled_depth_m
+        for k in _ADDR:
+            setattr(m, k, getattr(job.address, k))
+
+    async def _hydrate(self, m: JobModel) -> Job:
+        customer_name = (
+            await self._s.execute(select(CustomerModel.name).where(CustomerModel.id == m.customer_id))
+        ).scalar_one()
+        items = (
+            await self._s.execute(
+                select(JobPriceModel)
+                .where(JobPriceModel.job_id == m.id)
+                .order_by(JobPriceModel.diameter_cm)
+            )
+        ).scalars()
+        rigs = (
+            await self._s.execute(
+                select(DrillRigModel)
+                .join(JobRigModel, JobRigModel.rig_id == DrillRigModel.id)
+                .where(JobRigModel.job_id == m.id)
+                .order_by(DrillRigModel.name)
+            )
+        ).scalars()
+        operators = (
+            await self._s.execute(
+                select(UserModel)
+                .join(JobOperatorModel, JobOperatorModel.user_id == UserModel.id)
+                .where(JobOperatorModel.job_id == m.id)
+                .order_by(UserModel.name, UserModel.id)
+            )
+        ).scalars()
+        return _job(
+            m, customer_name, [PriceItem(i.diameter_cm, i.price_per_m) for i in items],
+            [_rig(r) for r in rigs], [_user(u) for u in operators],
+        )
+
+    async def add(self, job: Job) -> Job:
+        m = JobModel()
+        self._apply(m, job)
+        self._s.add(m)
+        await self._s.flush()
+        self._s.add_all(
+            JobPriceModel(job_id=m.id, diameter_cm=i.diameter_cm, price_per_m=i.price_per_m)
+            for i in job.items
+        )
+        await self._s.flush()
+        await self._s.refresh(m)
+        return await self._hydrate(m)
+
+    async def get(self, job_id: int) -> Job | None:
+        m = await self._s.get(JobModel, job_id)
+        return await self._hydrate(m) if m else None
+
+    async def update(self, job: Job) -> Job:
+        m = await self._s.get(JobModel, job.id)
+        assert m is not None
+        self._apply(m, job)
+        await self._s.flush()
+        await self._s.refresh(m)
+        return await self._hydrate(m)
+
+    async def set_allocation(
+        self, job_id: int, rig_ids: list[int], operator_ids: list[int]
+    ) -> None:
+        await self._s.execute(delete(JobRigModel).where(JobRigModel.job_id == job_id))
+        await self._s.execute(delete(JobOperatorModel).where(JobOperatorModel.job_id == job_id))
+        await self._s.flush()
+        self._s.add_all(JobRigModel(job_id=job_id, rig_id=r) for r in dict.fromkeys(rig_ids))
+        self._s.add_all(
+            JobOperatorModel(job_id=job_id, user_id=u) for u in dict.fromkeys(operator_ids)
+        )
+        await self._s.flush()
+
+    async def list(
+        self, params: PageParams, status: JobStatus | None = None, operator_id: int | None = None
+    ) -> Page[JobSummary]:
+        stmt = select(JobModel, CustomerModel.name).join(
+            CustomerModel, CustomerModel.id == JobModel.customer_id
+        )
+        if params.q:
+            like = f"%{params.q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    JobModel.name.ilike(like),
+                    CustomerModel.name.ilike(like),
+                    CustomerModel.trade_name.ilike(like),
+                )
+            )
+        if status is not None:
+            stmt = stmt.where(JobModel.status == status.value)
+        if operator_id is not None:
+            stmt = stmt.where(
+                exists().where(
+                    JobOperatorModel.job_id == JobModel.id, JobOperatorModel.user_id == operator_id
+                )
+            )
+        total = (await self._s.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+        rows = (
+            await self._s.execute(
+                stmt.order_by(JobModel.created_at.desc(), JobModel.id.desc())
+                .offset(params.offset)
+                .limit(params.page_size)
+            )
+        ).all()
+        return Page(
+            items=[
+                JobSummary(
+                    id=m.id, name=m.name, customer_name=cname, city=m.city,
+                    status=JobStatus(m.status), start_date=m.start_date,
+                )
+                for m, cname in rows
+            ],
+            total=total, page=params.page, page_size=params.page_size,
+        )
+
+    async def set_prices(self, job_id: int, table: PriceTable) -> None:
+        m = await self._s.get(JobModel, job_id)
+        assert m is not None
+        m.mobilization_fee = table.mobilization_fee
+        m.minimum_amount = table.minimum_amount
+        m.max_tabled_depth_m = table.max_tabled_depth_m
+        await self._s.execute(delete(JobPriceModel).where(JobPriceModel.job_id == job_id))
+        await self._s.flush()
+        self._s.add_all(
+            JobPriceModel(job_id=job_id, diameter_cm=i.diameter_cm, price_per_m=i.price_per_m)
+            for i in table.items
+        )
+        await self._s.flush()
+
+    async def is_operator_allocated(self, job_id: int, user_id: int) -> bool:
+        stmt = select(
+            exists().where(JobOperatorModel.job_id == job_id, JobOperatorModel.user_id == user_id)
+        )
+        return bool((await self._s.execute(stmt)).scalar())

@@ -8,6 +8,8 @@ from moura_gestao.interfaces.http.routes import (
     customers,
     drill_rigs,
     health,
+    jobs,
+    operators,
     price_table,
     users,
 )
@@ -26,4 +28,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(customers.router)
     app.include_router(drill_rigs.router)
     app.include_router(price_table.router)
+    app.include_router(jobs.router)
+    app.include_router(operators.router)
     return app

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -16,6 +16,7 @@ from pydantic import (
 from moura_gestao.domain.customers import UFS
 from moura_gestao.domain.documents import document_kind
 from moura_gestao.domain.drill_rigs import RigStatus
+from moura_gestao.domain.jobs import JobStatus
 from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure, quantize_money
 from moura_gestao.domain.pricing import PriceItem, validate_items
 from moura_gestao.domain.users import Role
@@ -248,3 +249,67 @@ class PriceTableIO(BaseModel):
     def _items(cls, v: list[PriceItemIO]) -> list[PriceItemIO]:
         ordered = validate_items([PriceItem(i.diameter_cm, i.price_per_m) for i in v])
         return [PriceItemIO(diameter_cm=i.diameter_cm, price_per_m=i.price_per_m) for i in ordered]
+
+
+class JobIn(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    customer_id: int
+    address: AddressIn
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    prices: PriceTableIO | None = None
+
+
+class JobPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    address: AddressIn | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    status: JobStatus | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> "JobPatch":
+        _reject_null(self, ("name", "address", "status"))
+        return self
+
+
+class AllocationIn(BaseModel):
+    rig_ids: list[int]
+    operator_ids: list[int]
+
+
+class IdName(BaseModel):
+    id: int
+    name: str
+
+
+class JobRigOut(IdName):
+    max_diameter_cm: int
+    max_depth_m: Annotated[Decimal, PlainSerializer(lambda d: f"{d:.2f}", return_type=str)]
+
+
+class JobOut(BaseModel):
+    id: int
+    name: str
+    customer: IdName
+    address: AddressOut
+    status: JobStatus
+    start_date: date | None
+    end_date: date | None
+    notes: str | None
+    prices: PriceTableIO | None
+    contracted_diameters: list[int]
+    rigs: list[JobRigOut]
+    operators: list[IdName]
+    created_at: datetime
+
+
+class JobSummaryOut(BaseModel):
+    id: int
+    name: str
+    customer_name: str
+    city: str
+    status: JobStatus
+    start_date: date | None

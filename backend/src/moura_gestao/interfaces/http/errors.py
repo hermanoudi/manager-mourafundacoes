@@ -19,6 +19,7 @@ STATUS = {
         409,
     ),
     "line_exceeds_rig": 422,
+    "invalid_dates": 422,
     "future_date": 422,
     "file_too_large": 413,
     "unsupported_media_type": 415,
