@@ -3,6 +3,16 @@ from pydantic import SecretStr, ValidationError
 
 from moura_gestao.infrastructure.config import Settings
 
+
+@pytest.fixture(autouse=True)
+def _isolated_env(monkeypatch):
+    """Sem backend/.env nem variáveis do shell: só valem os argumentos de cada teste."""
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    for name in Settings.model_fields:
+        if name not in ("database_url", "jwt_secret"):
+            monkeypatch.delenv(name.upper(), raising=False)
+
+
 S3 = {
     "storage_backend": "s3", "s3_endpoint_url": "https://s3.example.com", "s3_bucket": "fotos",
     "s3_access_key_id": "chave", "s3_secret_access_key": SecretStr("segredo"),
