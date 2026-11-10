@@ -99,13 +99,14 @@ async def update_job(
                 "job_not_ready",
                 "Aloque ao menos uma perfuratriz e um operador antes de iniciar a obra",
             )
-        if status == JobStatus.COMPLETED and await measurements.count_by_status(
-            job_id, MeasurementStatus.SUBMITTED
-        ):
-            raise Conflict(
-                "pending_measurements",
-                "Aprove ou rejeite as medições enviadas antes de concluir a obra",
-            )
+        if status == JobStatus.COMPLETED:
+            # mesmo lock das escritas de medição: um envio concorrente não escapa da contagem
+            await measurements.lock_job(job_id)
+            if await measurements.count_by_status(job_id, MeasurementStatus.SUBMITTED):
+                raise Conflict(
+                    "pending_measurements",
+                    "Aprove ou rejeite as medições enviadas antes de concluir a obra",
+                )
         changed.status = status
     return await jobs.update(changed)
 

@@ -109,6 +109,18 @@ async def get_measurement_for(
     return m
 
 
+async def _get_locked(
+    measurements: MeasurementRepository, jobs: JobRepository, user: User, measurement_id: int
+) -> Measurement:
+    """Medição visível relida depois do lock da obra (escritas concorrentes serializadas)."""
+    m = await get_measurement_for(measurements, jobs, user, measurement_id)
+    await measurements.lock_job(m.job_id)
+    locked = await measurements.get(measurement_id)
+    if locked is None:  # excluída enquanto esperava o lock
+        raise NotFound(_NOT_FOUND)
+    return locked
+
+
 async def list_measurements_for(
     measurements: MeasurementRepository, user: User, params: PageParams,
     job_id: int | None = None, status: MeasurementStatus | None = None,
@@ -127,6 +139,7 @@ async def save_measurement(
     Devolve (medição, criada?).
     """
     payload = {"rig_id": rig_id, "work_date": work_date, "lines": list(lines), "notes": notes}
+    await measurements.lock_job(job_id)
     existing = await measurements.get_by_client_key(client_key)
     if existing is None:
         new = Measurement(
@@ -161,7 +174,7 @@ async def update_measurement(
     measurements: MeasurementRepository, jobs: JobRepository, user: User, now: datetime,
     measurement_id: int, **changes: Any,
 ) -> Measurement:
-    m = await get_measurement_for(measurements, jobs, user, measurement_id)
+    m = await _get_locked(measurements, jobs, user, measurement_id)
     _check_author(user, m)
     _check_editable(m)
     return await _edit(measurements, jobs, user, now, m, changes)
@@ -170,7 +183,7 @@ async def update_measurement(
 async def delete_measurement(
     measurements: MeasurementRepository, jobs: JobRepository, user: User, measurement_id: int
 ) -> None:
-    m = await get_measurement_for(measurements, jobs, user, measurement_id)
+    m = await _get_locked(measurements, jobs, user, measurement_id)
     _check_author(user, m)
     _check_editable(m)
     await measurements.delete(measurement_id)
@@ -180,7 +193,7 @@ async def submit_measurement(
     measurements: MeasurementRepository, jobs: JobRepository, user: User, now: datetime,
     measurement_id: int,
 ) -> Measurement:
-    m = await get_measurement_for(measurements, jobs, user, measurement_id)
+    m = await _get_locked(measurements, jobs, user, measurement_id)
     _check_author(user, m)
     if m.status == MeasurementStatus.SUBMITTED:
         return m
@@ -200,7 +213,7 @@ async def approve_measurement(
     measurement_id: int,
 ) -> Measurement:
     _check_reviewer(user)
-    m = await get_measurement_for(measurements, jobs, user, measurement_id)
+    m = await _get_locked(measurements, jobs, user, measurement_id)
     if m.status == MeasurementStatus.APPROVED:
         return m
     if m.status != MeasurementStatus.SUBMITTED:
@@ -225,7 +238,7 @@ async def reject_measurement(
         raise DomainError(
             f"O motivo deve ter de {REASON_MIN} a {REASON_MAX} caracteres", code="validation_error"
         )
-    m = await get_measurement_for(measurements, jobs, user, measurement_id)
+    m = await _get_locked(measurements, jobs, user, measurement_id)
     if m.status != MeasurementStatus.SUBMITTED:
         raise Conflict("invalid_status_transition", "Só medições enviadas podem ser rejeitadas")
     m.status, m.reviewed_by, m.reviewed_at = MeasurementStatus.REJECTED, user.id, now

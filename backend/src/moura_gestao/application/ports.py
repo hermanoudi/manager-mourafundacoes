@@ -66,6 +66,10 @@ class JobRepository(Protocol):
 
 
 class MeasurementRepository(Protocol):
+    async def lock_job(self, job_id: int) -> None:
+        """Serializa escritas de medições da obra até o fim da transação."""
+        ...
+
     async def add(self, measurement: Measurement) -> Measurement:
         """Levanta Conflict("duplicate_client_key") se o client_key já existir."""
         ...

@@ -604,6 +604,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -626,6 +627,7 @@ requires-dist = [
     { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "sqlalchemy", extras = ["asyncio"] },
+    { name = "tzdata", specifier = ">=2026.6" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 

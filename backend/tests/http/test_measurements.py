@@ -109,6 +109,35 @@ async def test_concurrent_same_client_key_creates_one(ctx):
     assert listed["total"] == 1
 
 
+async def test_concurrent_replays_do_not_double_lines_or_unsubmit(ctx):
+    payload = body(ctx, [line("E-1")])
+    m = await create(ctx.op_a, payload, 201)
+    submit_a = {**payload, "lines": [line("E-1"), line("E-2")], "submit": True}
+    draft_b = {**payload, "lines": [line("E-1"), line("E-3")], "submit": False}
+    r1, r2 = await asyncio.gather(
+        ctx.op_a.post("/api/measurements", json=submit_a),
+        ctx.op_a.post("/api/measurements", json=draft_b),
+    )
+    assert r1.status_code == r2.status_code == 200, (r1.text, r2.text)
+    final = (await ctx.op_a.get(f"/api/measurements/{m['id']}")).json()
+    # qualquer ordem termina enviada com as linhas do envio (o rascunho atrasado não desfaz)
+    assert final["status"] == "submitted"
+    assert [ln["pile_code"] for ln in final["lines"]] == ["E-1", "E-2"]
+    assert final["total_m"] == "20.00"
+    listed = (await ctx.office.get("/api/measurements", params={"job_id": ctx.job_id})).json()
+    assert listed["total"] == 1
+
+
+async def test_concurrent_duplicate_pile_only_one_wins(ctx):
+    r1, r2 = await asyncio.gather(
+        ctx.op_a.post("/api/measurements", json=body(ctx, [line("E-50")])),
+        ctx.op_c.post("/api/measurements", json=body(ctx, [line("e50")])),
+    )
+    assert sorted([r1.status_code, r2.status_code]) == [201, 409], (r1.text, r2.text)
+    loser = r1 if r1.status_code == 409 else r2
+    assert loser.json()["code"] == "duplicate_pile"
+
+
 async def test_upsert_draft_then_submit_same_key(ctx):
     payload = body(ctx, [line("E-1")])
     first = await create(ctx.op_a, payload, 201)

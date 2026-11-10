@@ -14,6 +14,7 @@ dependencies = [
     "pyjwt",
     "pwdlib[argon2]",
     "email-validator",
+    "tzdata>=2026.6",
 ]
 
 [dependency-groups]

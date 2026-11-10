@@ -436,6 +436,7 @@ class SqlJobRepository:
 
 
 _CLIENT_KEY_UQ = "uq_measurements_client_key"
+_JOB_LOCK_NS = 7001  # namespace do pg_advisory_xact_lock(int, int) para medições por obra
 _MEASUREMENT = (
     "client_key", "job_id", "rig_id", "work_date", "created_by", "notes", "submitted_at",
     "reviewed_by", "reviewed_at", "rejection_reason",
@@ -535,12 +536,22 @@ class SqlMeasurementRepository:
         await self._s.flush()
         return await self._reload(m)
 
+    async def lock_job(self, job_id: int) -> None:
+        await self._s.execute(
+            select(func.pg_advisory_xact_lock(_JOB_LOCK_NS, job_id))
+        )
+
+    # populate_existing: depois de esperar o lock, relê do banco em vez do mapa de identidade
     async def get(self, measurement_id: int) -> Measurement | None:
-        m = await self._s.get(MeasurementModel, measurement_id)
+        m = await self._s.get(MeasurementModel, measurement_id, populate_existing=True)
         return (await self._hydrate([m]))[0] if m else None
 
     async def get_by_client_key(self, client_key: uuid.UUID) -> Measurement | None:
-        stmt = select(MeasurementModel).where(MeasurementModel.client_key == client_key)
+        stmt = (
+            select(MeasurementModel)
+            .where(MeasurementModel.client_key == client_key)
+            .execution_options(populate_existing=True)
+        )
         m = (await self._s.execute(stmt)).scalar()
         return (await self._hydrate([m]))[0] if m else None
 
