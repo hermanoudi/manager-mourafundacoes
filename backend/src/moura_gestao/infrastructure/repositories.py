@@ -1,12 +1,19 @@
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from moura_gestao.application.pagination import Page, PageParams
 from moura_gestao.domain.customers import Address, Customer, CustomerKind
 from moura_gestao.domain.documents import normalize_document
 from moura_gestao.domain.drill_rigs import DrillRig, RigStatus
+from moura_gestao.domain.pricing import PriceItem, PriceTable
 from moura_gestao.domain.users import Role, User
-from moura_gestao.infrastructure.models import CustomerModel, DrillRigModel, UserModel
+from moura_gestao.infrastructure.models import (
+    CustomerModel,
+    DrillRigModel,
+    PriceTableItemModel,
+    PriceTableModel,
+    UserModel,
+)
 
 
 def _user(m: UserModel) -> User:
@@ -201,3 +208,43 @@ class SqlDrillRigRepository:
             items=[_rig(m) for m in rows], total=total, page=params.page,
             page_size=params.page_size,
         )
+
+
+class SqlPriceTableRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+
+    async def _head(self) -> PriceTableModel:
+        return (
+            await self._s.execute(select(PriceTableModel).where(PriceTableModel.id == 1))
+        ).scalar_one()
+
+    async def get(self) -> PriceTable:
+        head = await self._head()
+        rows = (
+            await self._s.execute(
+                select(PriceTableItemModel).order_by(PriceTableItemModel.diameter_cm)
+            )
+        ).scalars()
+        return PriceTable(
+            mobilization_fee=head.mobilization_fee,
+            minimum_amount=head.minimum_amount,
+            max_tabled_depth_m=head.max_tabled_depth_m,
+            items=[PriceItem(r.diameter_cm, r.price_per_m) for r in rows],
+        )
+
+    async def replace(self, table: PriceTable) -> PriceTable:
+        head = await self._head()
+        head.mobilization_fee = table.mobilization_fee
+        head.minimum_amount = table.minimum_amount
+        head.max_tabled_depth_m = table.max_tabled_depth_m
+        head.updated_at = func.now()
+        await self._s.execute(delete(PriceTableItemModel))
+        await self._s.flush()
+        self._s.add_all(
+            PriceTableItemModel(diameter_cm=i.diameter_cm, price_per_m=i.price_per_m)
+            for i in table.items
+        )
+        await self._s.flush()
+        self._s.expire_all()
+        return await self.get()

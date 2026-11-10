@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from moura_gestao.infrastructure.config import Settings
 from moura_gestao.infrastructure.models import Base, UserModel
+from moura_gestao.infrastructure.pricing_seed import seed_price_table
 from moura_gestao.infrastructure.security import Argon2Hasher
 from moura_gestao.interfaces.http.app import create_app
 
@@ -44,6 +45,7 @@ async def db_session(settings: Settings):
     if tables:
         async with engine.begin() as conn:
             await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+            await conn.run_sync(seed_price_table)
     await engine.dispose()
 
 
@@ -81,18 +83,16 @@ def make_user(db_session: AsyncSession):
 
 
 @pytest.fixture
-def login_as(app, make_user):
+def login_user(app, make_user):
     clients: list[httpx.AsyncClient] = []
 
-    async def _login(role: str) -> httpx.AsyncClient:
-        await make_user(f"{role}@moura.test", role)
+    async def _login(email: str, role: str) -> tuple[httpx.AsyncClient, int]:
+        user = await make_user(email, role)
         c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
         clients.append(c)
-        resp = await c.post(
-            "/api/auth/login", json={"email": f"{role}@moura.test", "password": PASSWORD}
-        )
+        resp = await c.post("/api/auth/login", json={"email": email, "password": PASSWORD})
         assert resp.status_code == 200, resp.text
-        return c
+        return c, user.id
 
     yield _login
     # clients closed by GC; explicit close below
@@ -100,3 +100,12 @@ def login_as(app, make_user):
 
     for c in clients:
         asyncio.get_event_loop().create_task(c.aclose())
+
+
+@pytest.fixture
+def login_as(login_user):
+    async def _login(role: str) -> httpx.AsyncClient:
+        client, _ = await login_user(f"{role}@moura.test", role)
+        return client
+
+    return _login

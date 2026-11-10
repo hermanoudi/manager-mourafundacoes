@@ -3,6 +3,7 @@ from typing import Protocol
 from moura_gestao.application.pagination import Page, PageParams
 from moura_gestao.domain.customers import Customer
 from moura_gestao.domain.drill_rigs import DrillRig, RigStatus
+from moura_gestao.domain.pricing import PriceTable
 from moura_gestao.domain.users import Role, User
 
 
@@ -39,3 +40,8 @@ class DrillRigRepository(Protocol):
     async def get_by_name(self, name: str) -> DrillRig | None: ...
     async def update(self, rig: DrillRig) -> DrillRig: ...
     async def list(self, params: PageParams, status: RigStatus | None = None) -> Page[DrillRig]: ...
+
+
+class PriceTableRepository(Protocol):
+    async def get(self) -> PriceTable: ...
+    async def replace(self, table: PriceTable) -> PriceTable: ...

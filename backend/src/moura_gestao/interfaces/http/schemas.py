@@ -16,7 +16,8 @@ from pydantic import (
 from moura_gestao.domain.customers import UFS
 from moura_gestao.domain.documents import document_kind
 from moura_gestao.domain.drill_rigs import RigStatus
-from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure
+from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure, quantize_money
+from moura_gestao.domain.pricing import PriceItem, validate_items
 from moura_gestao.domain.users import Role
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -209,3 +210,41 @@ class DrillRigPatch(BaseModel):
 class DrillRigOut(DrillRigBase):
     id: int
     max_depth_m: Annotated[Decimal, PlainSerializer(lambda d: f"{d:.2f}", return_type=str)]
+
+
+def _money(v: str | int | Decimal) -> Decimal:
+    value = quantize_money(parse_decimal_br(v))
+    if value < 0:
+        raise ValueError("valor não pode ser negativo")
+    return value
+
+
+def _positive_money(v: str | int | Decimal) -> Decimal:
+    value = _money(v)
+    if value <= 0:
+        raise ValueError("valor deve ser maior que zero")
+    return value
+
+
+_to_str = PlainSerializer(lambda d: f"{d:.2f}", return_type=str)
+Money = Annotated[Decimal, BeforeValidator(_money), _to_str]
+PositiveMoney = Annotated[Decimal, BeforeValidator(_positive_money), _to_str]
+TabledDepth = Annotated[Decimal, BeforeValidator(_depth), _to_str]
+
+
+class PriceItemIO(BaseModel):
+    diameter_cm: int = Field(ge=25, le=80)
+    price_per_m: PositiveMoney
+
+
+class PriceTableIO(BaseModel):
+    mobilization_fee: Money
+    minimum_amount: Money | None = None
+    max_tabled_depth_m: TabledDepth
+    items: list[PriceItemIO]
+
+    @field_validator("items")
+    @classmethod
+    def _items(cls, v: list[PriceItemIO]) -> list[PriceItemIO]:
+        ordered = validate_items([PriceItem(i.diameter_cm, i.price_per_m) for i in v])
+        return [PriceItemIO(diameter_cm=i.diameter_cm, price_per_m=i.price_per_m) for i in ordered]

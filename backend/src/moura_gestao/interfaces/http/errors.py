@@ -9,6 +9,21 @@ STATUS = {
     "invalid_credentials": 401,
     "not_authenticated": 401,
     "forbidden": 403,
+    **dict.fromkeys(
+        (
+            "invalid_status_transition", "job_not_ready", "job_locked", "job_not_in_progress",
+            "rig_not_allocated", "rig_unavailable", "invalid_operator", "measurement_locked",
+            "diameter_not_contracted", "pending_measurements", "duplicate_pile",
+            "duplicate_client_key",
+        ),
+        409,
+    ),
+    "line_exceeds_rig": 422,
+    "future_date": 422,
+    "file_too_large": 413,
+    "unsupported_media_type": 415,
+    "extraction_failed": 502,
+    "extraction_unavailable": 503,
 }
 
 

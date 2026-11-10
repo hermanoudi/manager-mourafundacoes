@@ -98,4 +98,24 @@ class DrillRigModel(Base):
     )
 
 
+class PriceTableModel(Base):
+    __tablename__ = "price_table"
+    __table_args__ = (CheckConstraint("id = 1", name="single_row"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    mobilization_fee: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    minimum_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    max_tabled_depth_m: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PriceTableItemModel(Base):
+    __tablename__ = "price_table_items"
+
+    diameter_cm: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    price_per_m: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+
 Index("uq_drill_rigs_lower_name", func.lower(DrillRigModel.name), unique=True)
