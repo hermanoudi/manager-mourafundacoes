@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { navFor } from "@/components/NavItems";
+import { navFor, splitNav } from "@/components/NavItems";
 
 const labels = (role: "admin" | "office" | "operator") => navFor(role).map((i) => i.label);
 
@@ -26,5 +26,23 @@ describe("navFor", () => {
     expect(labels("admin")).toEqual([
       "Início", "Obras", "Medições", "Tabela de preços", "Clientes", "Perfuratrizes", "Usuários",
     ]);
+  });
+});
+
+describe("splitNav", () => {
+  const names = (r: ReturnType<typeof splitNav>) => [r.primary.map((i) => i.label), r.more.map((i) => i.label)];
+  it("operador (4 itens) não tem Mais", () => {
+    expect(names(splitNav(navFor("operator")))).toEqual([
+      ["Início", "Obras", "Medições", "Perfuratrizes"], [],
+    ]);
+  });
+  it("escritório (6 itens) mostra 4 e manda o resto para Mais", () => {
+    expect(names(splitNav(navFor("office")))).toEqual([
+      ["Início", "Obras", "Medições", "Tabela de preços"], ["Clientes", "Perfuratrizes"],
+    ]);
+  });
+  it("admin (7 itens) manda Usuários para Mais", () => {
+    const [, more] = names(splitNav(navFor("admin")));
+    expect(more).toEqual(["Clientes", "Perfuratrizes", "Usuários"]);
   });
 });

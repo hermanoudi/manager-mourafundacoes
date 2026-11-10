@@ -62,7 +62,9 @@ test("office cria obra, aloca e inicia", async ({ page }) => {
 
   await page.getByRole("button", { name: "Iniciar obra" }).click();
   await expect(page.getByTestId("job-status")).toHaveText("Em execução");
-  await expect(page.getByRole("link", { name: "Lançar medição" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Lançar medição" })).toHaveAttribute(
+    "href", /\/obras\/\d+\/medicoes\/nova$/,
+  );
   await expect(page.getByRole("button", { name: "Iniciar obra" })).toHaveCount(0);
   await noHorizontalScroll(page);
 });
@@ -90,4 +92,34 @@ test("operador alocado vê a obra sem preços; não alocada é 404", async ({ pa
   await expect(page.getByText("Registro não encontrado")).toBeVisible();
   await page.goto("/tabela-precos");
   await expect(page.getByText("Você não tem acesso a esta página")).toBeVisible();
+});
+
+test("admin alcança Usuários pelo menu Mais no mobile, sem scroll horizontal", async ({ page }, info) => {
+  test.skip(info.project.name === "desktop", "barra inferior só existe no mobile");
+  await loginAs(page, "admin");
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Principal" }).locator("visible=true");
+  await expect(nav.getByRole("link", { name: "Usuários" })).toHaveCount(0);
+  expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await noHorizontalScroll(page);
+
+  const more = nav.getByRole("button", { name: "Mais" });
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await more.click();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Mais opções" })).toHaveCount(0);
+
+  await more.click();
+  await page.getByRole("dialog", { name: "Mais opções" }).getByRole("link", { name: "Usuários" }).click();
+  await expect(page).toHaveURL(/\/usuarios$/);
+  await expect(page.getByRole("dialog", { name: "Mais opções" })).toHaveCount(0);
+  await noHorizontalScroll(page);
+});
+
+test("operador não tem menu Mais", async ({ page }, info) => {
+  test.skip(info.project.name === "desktop", "barra inferior só existe no mobile");
+  await loginAs(page, "operator");
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Mais" })).toHaveCount(0);
 });

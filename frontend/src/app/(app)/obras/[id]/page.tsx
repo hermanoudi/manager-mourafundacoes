@@ -71,7 +71,7 @@ export default function ObraPage() {
           <div className="flex flex-wrap gap-2">
             {job.status === "in_progress" && (
               <Link
-                href={`/medicoes/nova?job_id=${job.id}`}
+                href={`/obras/${job.id}/medicoes/nova`}
                 className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark"
               >
                 Lançar medição

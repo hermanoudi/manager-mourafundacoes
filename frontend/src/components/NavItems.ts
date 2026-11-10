@@ -20,3 +20,9 @@ export const NAV_ITEMS: NavItem[] = [
 export function navFor(role: Role): NavItem[] {
   return NAV_ITEMS.filter((i) => i.roles.includes(role));
 }
+
+/** Abas principais (até `max`) e o restante, que vai para o menu "Mais" no mobile. */
+export function splitNav(items: NavItem[], max = 4): { primary: NavItem[]; more: NavItem[] } {
+  if (items.length <= max) return { primary: items, more: [] };
+  return { primary: items.slice(0, max), more: items.slice(max) };
+}
