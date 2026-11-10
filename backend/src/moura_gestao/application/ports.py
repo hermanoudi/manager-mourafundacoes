@@ -6,6 +6,7 @@ from moura_gestao.domain.customers import Customer
 from moura_gestao.domain.drill_rigs import DrillRig, RigStatus
 from moura_gestao.domain.jobs import Job, JobStatus, JobSummary
 from moura_gestao.domain.measurements import Measurement, MeasurementStatus
+from moura_gestao.domain.photos import Photo, RawLine
 from moura_gestao.domain.pricing import PriceTable
 from moura_gestao.domain.users import Role, User
 
@@ -87,3 +88,22 @@ class MeasurementRepository(Protocol):
     ) -> Page[Measurement]: ...
     async def pile_keys_in_job(self, job_id: int, exclude_id: int | None = None) -> dict[str, str]: ...
     async def count_by_status(self, job_id: int, status: MeasurementStatus) -> int: ...
+
+
+class PhotoRepository(Protocol):
+    async def add(self, photo: Photo) -> Photo: ...
+    async def get(self, photo_id: uuid.UUID) -> Photo | None: ...
+
+
+class FileStorage(Protocol):
+    async def put(self, key: str, data: bytes, content_type: str) -> None: ...
+
+    async def get(self, key: str) -> bytes:
+        """Levanta NotFound se a chave não existir."""
+        ...
+
+
+class NotesExtractor(Protocol):
+    async def extract(self, image: bytes, content_type: str) -> list[RawLine]:
+        """Levanta DomainError("extraction_failed" | "extraction_unavailable")."""
+        ...

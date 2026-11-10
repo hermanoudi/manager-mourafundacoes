@@ -2,6 +2,8 @@ from fastapi import FastAPI
 
 from moura_gestao.infrastructure.config import Settings, get_settings
 from moura_gestao.infrastructure.db import make_engine, make_session_factory
+from moura_gestao.infrastructure.extractors import make_extractor
+from moura_gestao.infrastructure.storage import make_storage
 from moura_gestao.interfaces.http.errors import install_error_handlers
 from moura_gestao.interfaces.http.routes import (
     auth,
@@ -11,6 +13,7 @@ from moura_gestao.interfaces.http.routes import (
     jobs,
     measurements,
     operators,
+    photos,
     price_table,
     users,
 )
@@ -22,6 +25,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = make_engine(app.state.settings.database_url)
     app.state.engine = engine
     app.state.session_factory = make_session_factory(engine)
+    app.state.storage = make_storage(app.state.settings)
+    app.state.extractor = make_extractor(app.state.settings)
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(auth.router)
@@ -32,4 +37,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(operators.router)
     app.include_router(measurements.router)
+    app.include_router(photos.router)
     return app

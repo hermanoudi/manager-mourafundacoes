@@ -3,7 +3,12 @@ from collections.abc import AsyncIterator, Callable
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from moura_gestao.application.ports import PasswordHasher, TokenService
+from moura_gestao.application.ports import (
+    FileStorage,
+    NotesExtractor,
+    PasswordHasher,
+    TokenService,
+)
 from moura_gestao.domain.errors import DomainError
 from moura_gestao.domain.users import Role, User
 from moura_gestao.infrastructure.repositories import SqlUserRepository
@@ -21,6 +26,14 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         except Exception:
             await session.rollback()
             raise
+
+
+def get_storage(request: Request) -> FileStorage:
+    return request.app.state.storage
+
+
+def get_extractor(request: Request) -> NotesExtractor:
+    return request.app.state.extractor
 
 
 def get_hasher() -> PasswordHasher:

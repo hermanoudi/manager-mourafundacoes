@@ -9,7 +9,11 @@ from moura_gestao.application import measurements as uc
 from moura_gestao.application.pagination import Page, PageParams
 from moura_gestao.domain.measurements import Measurement, MeasurementLine, MeasurementStatus
 from moura_gestao.domain.users import User
-from moura_gestao.infrastructure.repositories import SqlJobRepository, SqlMeasurementRepository
+from moura_gestao.infrastructure.repositories import (
+    SqlJobRepository,
+    SqlMeasurementRepository,
+    SqlPhotoRepository,
+)
 from moura_gestao.interfaces.http.deps import current_user, get_session
 from moura_gestao.interfaces.http.schemas import (
     DiameterTotalOut,
@@ -29,10 +33,13 @@ router = APIRouter(prefix="/api/measurements", tags=["measurements"])
 class Repos:
     measurements: SqlMeasurementRepository
     jobs: SqlJobRepository
+    photos: SqlPhotoRepository
 
 
 def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
-    return Repos(SqlMeasurementRepository(session), SqlJobRepository(session))
+    return Repos(
+        SqlMeasurementRepository(session), SqlJobRepository(session), SqlPhotoRepository(session)
+    )
 
 
 def _now() -> datetime:
@@ -62,7 +69,7 @@ def _summary_fields(m: Measurement) -> dict[str, Any]:
             if m.reviewed_by is not None else None
         ),
         "reviewed_at": m.reviewed_at, "rejection_reason": m.rejection_reason,
-        "photo_id": None,  # Ruling R1: foto só é persistida a partir da Task 4
+        "photo_id": m.photo_id,
         "notes": m.notes,
     }
 
@@ -96,9 +103,10 @@ async def create_measurement(
     r: Repos = Depends(get_repos),
 ):
     m, created = await uc.save_measurement(
-        r.measurements, r.jobs, user, _now(),
+        r.measurements, r.jobs, r.photos, user, _now(),
         client_key=body.client_key, job_id=body.job_id, rig_id=body.rig_id,
-        work_date=body.work_date, lines=_lines(body.lines), notes=body.notes, submit=body.submit,
+        work_date=body.work_date, lines=_lines(body.lines), notes=body.notes,
+        photo_id=body.photo_id, submit=body.submit,
     )
     if not created:
         response.status_code = 200

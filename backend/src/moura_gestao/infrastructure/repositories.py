@@ -17,6 +17,7 @@ from moura_gestao.domain.measurements import (
     MeasurementStatus,
     pile_key,
 )
+from moura_gestao.domain.photos import Photo
 from moura_gestao.domain.pricing import PriceItem, PriceTable
 from moura_gestao.domain.users import Role, User
 from moura_gestao.infrastructure.models import (
@@ -28,6 +29,7 @@ from moura_gestao.infrastructure.models import (
     JobRigModel,
     MeasurementLineModel,
     MeasurementModel,
+    PhotoModel,
     PriceTableItemModel,
     PriceTableModel,
     UserModel,
@@ -439,7 +441,7 @@ _CLIENT_KEY_UQ = "uq_measurements_client_key"
 _JOB_LOCK_NS = 7001  # namespace do pg_advisory_xact_lock(int, int) para medições por obra
 _MEASUREMENT = (
     "client_key", "job_id", "rig_id", "work_date", "created_by", "notes", "submitted_at",
-    "reviewed_by", "reviewed_at", "rejection_reason",
+    "reviewed_by", "reviewed_at", "rejection_reason", "photo_id",
 )
 
 
@@ -619,3 +621,26 @@ class SqlMeasurementRepository:
             MeasurementModel.job_id == job_id, MeasurementModel.status == status.value
         )
         return (await self._s.execute(stmt)).scalar_one()
+
+
+_PHOTO = ("id", "job_id", "uploaded_by", "storage_key", "content_type", "size_bytes")
+
+
+def _photo(m: PhotoModel) -> Photo:
+    return Photo(created_at=m.created_at, **{k: getattr(m, k) for k in _PHOTO})
+
+
+class SqlPhotoRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+
+    async def add(self, photo: Photo) -> Photo:
+        m = PhotoModel(**{k: getattr(photo, k) for k in _PHOTO})
+        self._s.add(m)
+        await self._s.flush()
+        await self._s.refresh(m)
+        return _photo(m)
+
+    async def get(self, photo_id: uuid.UUID) -> Photo | None:
+        m = await self._s.get(PhotoModel, photo_id)
+        return _photo(m) if m else None

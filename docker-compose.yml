@@ -31,8 +31,17 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Administrador}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@moura.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-moura-admin-123}
+      # Leitura das fotos por IA. Sem chave, a foto é salva e o usuário digita as linhas.
+      # NOTES_EXTRACTOR=fake devolve linhas fixas (e2e).
+      NOTES_EXTRACTOR: ${NOTES_EXTRACTOR:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_DIR: /app/var/uploads
     ports:
       - "${API_PORT:-8100}:8000"
+    volumes:
+      - uploads:/app/var/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -61,3 +70,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

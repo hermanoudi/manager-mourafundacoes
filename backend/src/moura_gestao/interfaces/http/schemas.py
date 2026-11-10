@@ -337,7 +337,7 @@ class MeasurementIn(BaseModel):
     work_date: date
     lines: Lines
     notes: str | None = None
-    photo_id: UUID | None = None  # aceito, mas só persistido a partir da Task 4 (Ruling R1)
+    photo_id: UUID | None = None
     submit: bool = False
 
 
@@ -384,3 +384,22 @@ class MeasurementSummaryOut(BaseModel):
 
 class MeasurementOut(MeasurementSummaryOut):
     lines: list[MeasurementLineIO]
+
+
+class ExtractedLineOut(BaseModel):
+    pile_code: str
+    diameter_cm: int | None
+    depth_m: Measure | None
+    valid: bool
+    error: str | None
+
+
+class ExtractionOut(BaseModel):
+    lines: list[ExtractedLineOut]
+    warnings: list[str]
+
+
+class PhotoUploadOut(BaseModel):
+    photo_id: UUID
+    extraction: ExtractionOut | None
+    extraction_error: str | None

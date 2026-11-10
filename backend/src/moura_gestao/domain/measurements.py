@@ -77,6 +77,7 @@ class Measurement:
     lines: list[MeasurementLine]
     status: MeasurementStatus = MeasurementStatus.DRAFT
     notes: str | None = None
+    photo_id: uuid.UUID | None = None
     submitted_at: datetime | None = None
     reviewed_by: int | None = None
     reviewed_at: datetime | None = None

@@ -5,7 +5,7 @@ from typing import Any
 
 from moura_gestao.application.jobs import get_job_for
 from moura_gestao.application.pagination import Page, PageParams
-from moura_gestao.application.ports import JobRepository, MeasurementRepository
+from moura_gestao.application.ports import JobRepository, MeasurementRepository, PhotoRepository
 from moura_gestao.domain.dates import today_sp
 from moura_gestao.domain.errors import Conflict, DomainError, NotFound
 from moura_gestao.domain.jobs import JobStatus
@@ -130,15 +130,25 @@ async def list_measurements_for(
 
 
 async def save_measurement(
-    measurements: MeasurementRepository, jobs: JobRepository, user: User, now: datetime, *,
+    measurements: MeasurementRepository, jobs: JobRepository, photos: PhotoRepository,
+    user: User, now: datetime, *,
     client_key: uuid.UUID, job_id: int, rig_id: int, work_date: date,
-    lines: list[MeasurementLine], notes: str | None = None, submit: bool = False,
+    lines: list[MeasurementLine], notes: str | None = None, photo_id: uuid.UUID | None = None,
+    submit: bool = False,
 ) -> tuple[Measurement, bool]:
     """Cria a medição ou, se o client_key já existe, aplica o replay/upsert.
 
     Devolve (medição, criada?).
     """
-    payload = {"rig_id": rig_id, "work_date": work_date, "lines": list(lines), "notes": notes}
+    if photo_id is not None:
+        await get_job_for(jobs, user, job_id)  # operador não alocado: 404 antes de olhar a foto
+        photo = await photos.get(photo_id)
+        if photo is None or photo.job_id != job_id:
+            raise DomainError("A foto não pertence a esta obra", code="validation_error")
+    payload = {
+        "rig_id": rig_id, "work_date": work_date, "lines": list(lines), "notes": notes,
+        "photo_id": photo_id,
+    }
     await measurements.lock_job(job_id)
     existing = await measurements.get_by_client_key(client_key)
     if existing is None:

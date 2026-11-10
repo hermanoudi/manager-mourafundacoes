@@ -15,10 +15,19 @@ dependencies = [
     "pwdlib[argon2]",
     "email-validator",
     "tzdata>=2026.6",
+    "google-genai>=3.0.0",
+    "boto3>=1.43.127",
+    "python-multipart>=0.0.33",
 ]
 
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio", "httpx", "ruff"]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+    "ruff",
+    "moto[s3]>=5.2.5",
+]
 
 [build-system]
 requires = ["hatchling"]

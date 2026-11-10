@@ -23,5 +23,6 @@ Sistema de gestão da Moura Fundações. Spec: `docs/superpowers/specs/2026-11-0
 
 ## Deploy
 - API + Postgres no Railway (root `backend`, Dockerfile, healthcheck `/api/health`; variáveis `DATABASE_URL`, `JWT_SECRET`, `COOKIE_SECURE=true`, `ENVIRONMENT=prod`).
+- Fotos e IA na API: `GEMINI_API_KEY`, `GEMINI_MODEL` (padrão `gemini-3.5-flash-lite`), `STORAGE_BACKEND=s3`, `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_REGION` (padrão `auto`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`. Com `ENVIRONMENT=prod` o S3 é **obrigatório** (o disco do Railway é efêmero): sem bucket e credenciais a API não sobe e o healthcheck falha — crie o bucket (Railway Bucket ou R2) antes do deploy.
 - Front na Vercel (root `frontend`, variável `API_URL`); o Next reescreve `/api/*` para a API (cookie `mg_session` de primeira parte).
 - Next 16: o antigo `middleware.ts` chama-se `src/proxy.ts`; leia `frontend/node_modules/next/dist/docs/` antes de mexer em convenções do Next.
