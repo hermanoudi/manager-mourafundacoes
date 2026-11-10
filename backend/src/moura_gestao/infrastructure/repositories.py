@@ -1,11 +1,22 @@
+import uuid
+from collections import defaultdict
+
 from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from moura_gestao.application.pagination import Page, PageParams
 from moura_gestao.domain.customers import Address, Customer, CustomerKind
 from moura_gestao.domain.documents import normalize_document
 from moura_gestao.domain.drill_rigs import DrillRig, RigStatus
+from moura_gestao.domain.errors import Conflict
 from moura_gestao.domain.jobs import Job, JobStatus, JobSummary
+from moura_gestao.domain.measurements import (
+    Measurement,
+    MeasurementLine,
+    MeasurementStatus,
+    pile_key,
+)
 from moura_gestao.domain.pricing import PriceItem, PriceTable
 from moura_gestao.domain.users import Role, User
 from moura_gestao.infrastructure.models import (
@@ -15,6 +26,8 @@ from moura_gestao.infrastructure.models import (
     JobOperatorModel,
     JobPriceModel,
     JobRigModel,
+    MeasurementLineModel,
+    MeasurementModel,
     PriceTableItemModel,
     PriceTableModel,
     UserModel,
@@ -420,3 +433,178 @@ class SqlJobRepository:
             exists().where(JobOperatorModel.job_id == job_id, JobOperatorModel.user_id == user_id)
         )
         return bool((await self._s.execute(stmt)).scalar())
+
+
+_CLIENT_KEY_UQ = "uq_measurements_client_key"
+_MEASUREMENT = (
+    "client_key", "job_id", "rig_id", "work_date", "created_by", "notes", "submitted_at",
+    "reviewed_by", "reviewed_at", "rejection_reason",
+)
+
+
+def _constraint_name(exc: IntegrityError) -> str | None:
+    diag = getattr(exc.orig, "diag", None)
+    return getattr(diag, "constraint_name", None)
+
+
+class SqlMeasurementRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._s = session
+
+    @staticmethod
+    def _apply(m: MeasurementModel, measurement: Measurement) -> None:
+        for k in _MEASUREMENT:
+            setattr(m, k, getattr(measurement, k))
+        m.status = measurement.status.value
+
+    def _add_lines(self, measurement_id: int, lines: list[MeasurementLine]) -> None:
+        self._s.add_all(
+            MeasurementLineModel(
+                measurement_id=measurement_id, position=pos, pile_code=ln.pile_code,
+                diameter_cm=ln.diameter_cm, depth_m=ln.depth_m,
+            )
+            for pos, ln in enumerate(lines)
+        )
+
+    async def _names(self, model, ids: set[int]) -> dict[int, str]:
+        if not ids:
+            return {}
+        rows = await self._s.execute(select(model.id, model.name).where(model.id.in_(ids)))
+        return {row_id: name for row_id, name in rows}
+
+    async def _hydrate(self, rows: list[MeasurementModel]) -> list[Measurement]:
+        if not rows:
+            return []
+        ids = [r.id for r in rows]
+        job_ids = {r.job_id for r in rows}
+        lines: dict[int, list[MeasurementLine]] = defaultdict(list)
+        line_rows = await self._s.execute(
+            select(MeasurementLineModel)
+            .where(MeasurementLineModel.measurement_id.in_(ids))
+            .order_by(MeasurementLineModel.measurement_id, MeasurementLineModel.position)
+        )
+        for ln in line_rows.scalars():
+            lines[ln.measurement_id].append(
+                MeasurementLine(ln.pile_code, ln.diameter_cm, ln.depth_m)
+            )
+        contracted: dict[int, list[int]] = defaultdict(list)
+        price_rows = await self._s.execute(
+            select(JobPriceModel.job_id, JobPriceModel.diameter_cm)
+            .where(JobPriceModel.job_id.in_(job_ids))
+            .order_by(JobPriceModel.diameter_cm)
+        )
+        for job_id, diameter in price_rows:
+            contracted[job_id].append(diameter)
+        jobs = await self._names(JobModel, job_ids)
+        rigs = await self._names(DrillRigModel, {r.rig_id for r in rows})
+        users = await self._names(
+            UserModel,
+            {r.created_by for r in rows} | {r.reviewed_by for r in rows if r.reviewed_by},
+        )
+        return [
+            Measurement(
+                id=r.id, status=MeasurementStatus(r.status), lines=lines[r.id],
+                created_at=r.created_at, updated_at=r.updated_at,
+                job_name=jobs[r.job_id], rig_name=rigs[r.rig_id],
+                created_by_name=users[r.created_by],
+                reviewed_by_name=users.get(r.reviewed_by) if r.reviewed_by else None,
+                contracted_diameters=contracted[r.job_id],
+                **{k: getattr(r, k) for k in _MEASUREMENT},
+            )
+            for r in rows
+        ]
+
+    async def _reload(self, m: MeasurementModel) -> Measurement:
+        await self._s.refresh(m)
+        return (await self._hydrate([m]))[0]
+
+    async def add(self, measurement: Measurement) -> Measurement:
+        m = MeasurementModel()
+        self._apply(m, measurement)
+        try:
+            async with self._s.begin_nested():
+                self._s.add(m)
+                await self._s.flush()
+        except IntegrityError as exc:
+            if _constraint_name(exc) == _CLIENT_KEY_UQ:
+                raise Conflict(
+                    "duplicate_client_key", "Este identificador já pertence a outra medição"
+                ) from exc
+            raise
+        self._add_lines(m.id, measurement.lines)
+        await self._s.flush()
+        return await self._reload(m)
+
+    async def get(self, measurement_id: int) -> Measurement | None:
+        m = await self._s.get(MeasurementModel, measurement_id)
+        return (await self._hydrate([m]))[0] if m else None
+
+    async def get_by_client_key(self, client_key: uuid.UUID) -> Measurement | None:
+        stmt = select(MeasurementModel).where(MeasurementModel.client_key == client_key)
+        m = (await self._s.execute(stmt)).scalar()
+        return (await self._hydrate([m]))[0] if m else None
+
+    async def update(self, measurement: Measurement) -> Measurement:
+        m = await self._s.get(MeasurementModel, measurement.id)
+        assert m is not None
+        self._apply(m, measurement)
+        await self._s.execute(
+            delete(MeasurementLineModel).where(MeasurementLineModel.measurement_id == m.id)
+        )
+        self._add_lines(m.id, measurement.lines)
+        await self._s.flush()
+        return await self._reload(m)
+
+    async def delete(self, measurement_id: int) -> None:
+        await self._s.execute(delete(MeasurementModel).where(MeasurementModel.id == measurement_id))
+
+    async def list(
+        self,
+        params: PageParams,
+        job_id: int | None = None,
+        status: MeasurementStatus | None = None,
+        operator_id: int | None = None,
+    ) -> Page[Measurement]:
+        stmt = select(MeasurementModel)
+        if job_id is not None:
+            stmt = stmt.where(MeasurementModel.job_id == job_id)
+        if status is not None:
+            stmt = stmt.where(MeasurementModel.status == status.value)
+        if operator_id is not None:
+            stmt = stmt.where(
+                exists().where(
+                    JobOperatorModel.job_id == MeasurementModel.job_id,
+                    JobOperatorModel.user_id == operator_id,
+                )
+            )
+        total = (await self._s.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+        rows = (
+            await self._s.execute(
+                stmt.order_by(MeasurementModel.work_date.desc(), MeasurementModel.id.desc())
+                .offset(params.offset)
+                .limit(params.page_size)
+            )
+        ).scalars().all()
+        return Page(
+            items=await self._hydrate(list(rows)), total=total, page=params.page,
+            page_size=params.page_size,
+        )
+
+    async def pile_keys_in_job(self, job_id: int, exclude_id: int | None = None) -> dict[str, str]:
+        stmt = (
+            select(MeasurementLineModel.pile_code)
+            .join(MeasurementModel, MeasurementModel.id == MeasurementLineModel.measurement_id)
+            .where(
+                MeasurementModel.job_id == job_id,
+                MeasurementModel.status != MeasurementStatus.REJECTED.value,
+            )
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(MeasurementModel.id != exclude_id)
+        return {pile_key(code): code for code in (await self._s.execute(stmt)).scalars()}
+
+    async def count_by_status(self, job_id: int, status: MeasurementStatus) -> int:
+        stmt = select(func.count()).select_from(MeasurementModel).where(
+            MeasurementModel.job_id == job_id, MeasurementModel.status == status.value
+        )
+        return (await self._s.execute(stmt)).scalar_one()

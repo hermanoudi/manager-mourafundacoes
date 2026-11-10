@@ -11,6 +11,7 @@ from moura_gestao.infrastructure.repositories import (
     SqlCustomerRepository,
     SqlDrillRigRepository,
     SqlJobRepository,
+    SqlMeasurementRepository,
     SqlPriceTableRepository,
     SqlUserRepository,
 )
@@ -106,12 +107,16 @@ async def get_job(job_id: int, user: User = Depends(current_user), repo=Depends(
 
 @router.patch("/{job_id}", response_model=JobOut, dependencies=writers)
 async def patch_job(
-    job_id: int, body: JobPatch, user: User = Depends(current_user), repo=Depends(get_repo)
+    job_id: int, body: JobPatch, user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     data = body.model_dump(exclude_unset=True, exclude={"address"})
     if body.address is not None:
         data["address"] = Address(**body.address.model_dump())
-    return _out(await uc.update_job(repo, job_id, **data), user)
+    job = await uc.update_job(
+        SqlJobRepository(session), SqlMeasurementRepository(session), job_id, **data
+    )
+    return _out(job, user)
 
 
 @router.put("/{job_id}/prices", response_model=JobOut, dependencies=writers)

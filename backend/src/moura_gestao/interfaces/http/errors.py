@@ -18,6 +18,7 @@ STATUS = {
         ),
         409,
     ),
+    "validation_error": 422,
     "line_exceeds_rig": 422,
     "invalid_dates": 422,
     "future_date": 422,

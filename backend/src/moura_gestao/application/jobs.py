@@ -7,6 +7,7 @@ from moura_gestao.application.ports import (
     CustomerRepository,
     DrillRigRepository,
     JobRepository,
+    MeasurementRepository,
     PriceTableRepository,
     UserRepository,
 )
@@ -20,6 +21,7 @@ from moura_gestao.domain.jobs import (
     JobSummary,
     can_transition,
 )
+from moura_gestao.domain.measurements import MeasurementStatus
 from moura_gestao.domain.pricing import PriceTable, validate_items
 from moura_gestao.domain.users import Role, User
 
@@ -77,7 +79,9 @@ async def list_jobs_for(
     return await jobs.list(params, status, operator_id)
 
 
-async def update_job(jobs: JobRepository, job_id: int, **fields: Any) -> Job:
+async def update_job(
+    jobs: JobRepository, measurements: MeasurementRepository, job_id: int, **fields: Any
+) -> Job:
     job = await jobs.get(job_id)
     if job is None:
         raise NotFound(_NOT_FOUND)
@@ -94,6 +98,13 @@ async def update_job(jobs: JobRepository, job_id: int, **fields: Any) -> Job:
             raise Conflict(
                 "job_not_ready",
                 "Aloque ao menos uma perfuratriz e um operador antes de iniciar a obra",
+            )
+        if status == JobStatus.COMPLETED and await measurements.count_by_status(
+            job_id, MeasurementStatus.SUBMITTED
+        ):
+            raise Conflict(
+                "pending_measurements",
+                "Aprove ou rejeite as medições enviadas antes de concluir a obra",
             )
         changed.status = status
     return await jobs.update(changed)

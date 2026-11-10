@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Uuid,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -184,6 +186,52 @@ class JobOperatorModel(Base):
         ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+
+
+class MeasurementModel(Base):
+    __tablename__ = "measurements"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft','submitted','approved','rejected')", name="status_valid"
+        ),
+        Index("ix_measurements_job_id_status", "job_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_key: Mapped[uuid.UUID] = mapped_column(Uuid, unique=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
+    rig_id: Mapped[int] = mapped_column(ForeignKey("drill_rigs.id"))
+    work_date: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(12))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MeasurementLineModel(Base):
+    __tablename__ = "measurement_lines"
+    __table_args__ = (
+        CheckConstraint("diameter_cm BETWEEN 20 AND 120", name="diameter_range"),
+        CheckConstraint("depth_m > 0", name="depth_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    measurement_id: Mapped[int] = mapped_column(
+        ForeignKey("measurements.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int]
+    pile_code: Mapped[str] = mapped_column(String(20))
+    diameter_cm: Mapped[int]
+    depth_m: Mapped[Decimal] = mapped_column(Numeric(10, 2))
 
 
 Index("uq_drill_rigs_lower_name", func.lower(DrillRigModel.name), unique=True)

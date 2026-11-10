@@ -2,6 +2,7 @@ import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import (
     AfterValidator,
@@ -17,6 +18,7 @@ from moura_gestao.domain.customers import UFS
 from moura_gestao.domain.documents import document_kind
 from moura_gestao.domain.drill_rigs import RigStatus
 from moura_gestao.domain.jobs import JobStatus
+from moura_gestao.domain.measurements import MeasurementStatus, normalize_pile_code
 from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure, quantize_money
 from moura_gestao.domain.pricing import PriceItem, validate_items
 from moura_gestao.domain.users import Role
@@ -313,3 +315,72 @@ class JobSummaryOut(BaseModel):
     city: str
     status: JobStatus
     start_date: date | None
+
+
+PileCode = Annotated[str, AfterValidator(normalize_pile_code)]
+Measure = Annotated[Decimal, _to_str]
+
+
+class MeasurementLineIO(BaseModel):
+    pile_code: PileCode
+    diameter_cm: int = Field(ge=20, le=120)
+    depth_m: Annotated[Decimal, BeforeValidator(_depth), _to_str]
+
+
+Lines = Annotated[list[MeasurementLineIO], Field(min_length=1, max_length=200)]
+
+
+class MeasurementIn(BaseModel):
+    client_key: UUID
+    job_id: int
+    rig_id: int
+    work_date: date
+    lines: Lines
+    notes: str | None = None
+    photo_id: UUID | None = None  # aceito, mas só persistido a partir da Task 4 (Ruling R1)
+    submit: bool = False
+
+
+class MeasurementPatch(BaseModel):
+    rig_id: int | None = None
+    work_date: date | None = None
+    lines: Lines | None = None
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> "MeasurementPatch":
+        _reject_null(self, ("rig_id", "work_date", "lines"))
+        return self
+
+
+class RejectIn(BaseModel):
+    reason: str
+
+
+class DiameterTotalOut(BaseModel):
+    diameter_cm: int
+    piles: int
+    meters: Measure
+
+
+class MeasurementSummaryOut(BaseModel):
+    id: int
+    client_key: UUID
+    job: IdName
+    rig: IdName
+    work_date: date
+    status: MeasurementStatus
+    total_m: Measure
+    totals_by_diameter: list[DiameterTotalOut]
+    uncontracted_diameters: list[int]
+    created_by: IdName
+    submitted_at: datetime | None
+    reviewed_by: IdName | None
+    reviewed_at: datetime | None
+    rejection_reason: str | None
+    photo_id: UUID | None
+    notes: str | None
+
+
+class MeasurementOut(MeasurementSummaryOut):
+    lines: list[MeasurementLineIO]
