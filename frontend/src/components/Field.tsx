@@ -1,3 +1,5 @@
+import { cloneElement, isValidElement, useId } from "react";
+
 export const inputClass =
   "mt-1 block min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-base";
 
@@ -10,11 +12,21 @@ export function Field({
   error?: string;
   children: React.ReactNode;
 }) {
+  const errorId = useId();
+  // O erro fica ligado ao controle: leitor de tela anuncia o campo como inválido, com o motivo.
+  const control =
+    error && isValidElement<Record<string, unknown>>(children)
+      ? cloneElement(children, { "aria-invalid": true, "aria-describedby": errorId })
+      : children;
   return (
     <label className="block text-sm font-medium">
       {label}
-      {children}
-      {error && <span className="mt-1 block text-sm font-normal text-red-700">{error}</span>}
+      {control}
+      {error && (
+        <span id={errorId} className="mt-1 block text-sm font-normal text-red-700">
+          {error}
+        </span>
+      )}
     </label>
   );
 }
@@ -27,7 +39,7 @@ export function SubmitBar({ busy, error, saved }: { busy: boolean; error?: strin
           {error}
         </p>
       )}
-      {saved && <p className="text-sm text-green-700">Salvo</p>}
+      {saved && <p className="text-sm text-green-800">Salvo</p>}
       <button
         type="submit"
         disabled={busy}

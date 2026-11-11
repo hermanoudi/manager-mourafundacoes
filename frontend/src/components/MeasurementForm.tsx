@@ -7,7 +7,8 @@ import { useState } from "react";
 import { DroppedEditsAlert } from "@/components/DroppedEditsAlert";
 import { Field, inputClass } from "@/components/Field";
 import type { JobOut } from "@/components/JobForm";
-import { LinesEditor, validateLines, type LineInput } from "@/components/LinesEditor";
+import { LinesEditor, totals, validateLines, type LineInput } from "@/components/LinesEditor";
+import { Notice } from "@/components/Notice";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
@@ -16,8 +17,10 @@ import { clearDraft, loadDraft, saveDraft, type MeasurementDraft } from "@/lib/d
 import { messageFor } from "@/lib/errors";
 import { formatDecimalBR, toApiDecimal } from "@/lib/format";
 import {
-  editsDropped, type ExtractedLine, type Extraction, type MeasurementIn, type MeasurementOut,
+  editsDropped, formatHundredths, pilesLabel, type ExtractedLine, type Extraction, type MeasurementIn,
+  type MeasurementOut,
 } from "@/lib/measurements";
+import { flashSent } from "@/lib/flash";
 import { nullIfEmpty } from "@/lib/schemas";
 
 type Values = {
@@ -121,6 +124,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const [reading, setReading] = useState(false);
 
   const rig = job.rigs.find((r) => String(r.id) === values.rigId) ?? null;
+  const sum = totals(values.lines);
 
   function toPayload(v: Values, submit: boolean): MeasurementIn {
     return {
@@ -213,6 +217,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         return;
       }
       clearDraft(clientKey);
+      flashSent(m.id, m.status, values.lines.length, m.total_m);
       router.push(`/medicoes/${m.id}`);
     } catch (err) {
       if (err instanceof TypeError) {
@@ -235,9 +240,9 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
       }}
     >
       {server?.status === "rejected" && server.rejection_reason && (
-        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-          Motivo da rejeição: {server.rejection_reason}
-        </p>
+        <Notice tone="error">
+          <p>Motivo da rejeição: {server.rejection_reason}</p>
+        </Notice>
       )}
       {dropped && (
         <DroppedEditsAlert
@@ -249,7 +254,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         />
       )}
       {retry && (
-        <div role="status" className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+        <Notice tone="warn" role="status">
           <p>
             {retry.offline
               ? "Sem conexão — a medição ficou salva neste aparelho"
@@ -259,11 +264,11 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
             type="button"
             disabled={busy}
             onClick={() => void send(retry.submit)}
-            className="min-h-11 rounded-lg bg-amber-700 px-4 font-medium text-white disabled:opacity-60"
+            className="mt-1 min-h-11 rounded-lg bg-amber-800 px-4 font-medium text-white disabled:opacity-60"
           >
             Reenviar
           </button>
-        </div>
+        </Notice>
       )}
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -294,15 +299,16 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         <h2 className="text-lg font-medium">Estacas</h2>
         <PhotoCapture
           jobId={job.id}
+          prominent={!fromPhoto}
           onExtracted={applyExtraction}
           onError={(_code, photoId) => attachPhoto(photoId)}
           onReadingChange={setReading}
         />
         {fromPhoto && (
-          <div role="note" className="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          <Notice tone="warn" role="note">
             <p className="font-medium">Confira as linhas lidas da foto antes de enviar</p>
             {photoWarnings.map((w) => <p key={w}>{w}</p>)}
-          </div>
+          </Notice>
         )}
         <LinesEditor
           lines={values.lines}
@@ -321,24 +327,33 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         />
       </Field>
 
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {reading && <p className="text-sm text-stone-700">Aguarde a leitura da foto para enviar</p>}
-      <div className="flex flex-col gap-2 md:flex-row">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void send(false)}
-          className="min-h-11 rounded-lg border border-brand px-4 font-medium text-brand disabled:opacity-60"
-        >
-          Salvar rascunho
-        </button>
-        <button
-          type="submit"
-          disabled={busy || reading || hasPhotoErrors(values)}
-          className="min-h-11 rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60"
-        >
-          {busy ? "Enviando…" : sendLabel}
-        </button>
+      {/* Barra de ações fixa acima da navegação: Enviar e o total ficam ao alcance do polegar. */}
+      <div
+        data-testid="action-bar"
+        className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 space-y-2 border-t bg-white px-4 py-3 shadow-[0_-4px_12px_rgb(0_0_0/0.06)] md:bottom-0 md:mx-0 md:rounded-lg md:border"
+      >
+        {error && <Notice tone="error" role="alert">{error}</Notice>}
+        {reading && <p className="text-sm text-stone-700">Aguarde a leitura da foto para enviar</p>}
+        <p data-numeric className="text-sm font-medium text-stone-900">
+          {`${pilesLabel(sum.piles)} · ${formatHundredths(sum.h)} m`}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void send(false)}
+            className="min-h-12 flex-1 rounded-lg border border-brand px-4 font-medium text-brand disabled:opacity-60 md:flex-none"
+          >
+            Salvar rascunho
+          </button>
+          <button
+            type="submit"
+            disabled={busy || reading || hasPhotoErrors(values)}
+            className="min-h-12 flex-1 rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60 md:flex-none"
+          >
+            {busy ? "Enviando…" : sendLabel}
+          </button>
+        </div>
       </div>
     </form>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Notice } from "@/components/Notice";
 import { ApiError, api } from "@/lib/api";
 import { messageFor, messageForCode } from "@/lib/errors";
 import { MAX_PHOTO_BYTES, downscaleToJpeg } from "@/lib/image";
@@ -24,6 +25,8 @@ type Props = {
   onError: (code: string, photoId: string | null) => void;
   /** Leitura em andamento: o formulário não envia antes de a foto ser anexada. */
   onReadingChange?: (reading: boolean) => void;
+  /** Ação principal da tela (sólida) enquanto não há foto lida; depois vira secundária. */
+  prominent?: boolean;
 };
 
 /**
@@ -31,7 +34,7 @@ type Props = {
  * câmera e galeria (no canteiro sem sinal, fotografa agora e envia depois). A IA só preenche o
  * formulário; quem cria a medição é o operador ao enviar.
  */
-export function PhotoCapture({ jobId, onExtracted, onError, onReadingChange }: Props) {
+export function PhotoCapture({ jobId, onExtracted, onError, onReadingChange, prominent = true }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>({ kind: "idle" });
   const reading = state.kind === "reading";
@@ -110,24 +113,46 @@ export function PhotoCapture({ jobId, onExtracted, onError, onReadingChange }: P
         type="button"
         disabled={reading}
         onClick={() => input.current?.click()}
-        className="min-h-11 w-full rounded-lg border border-brand bg-white px-4 font-medium text-brand disabled:opacity-60 md:w-auto"
+        className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-lg px-4 text-base font-medium disabled:opacity-60 md:w-auto ${
+          prominent
+            ? "bg-brand text-white hover:bg-brand-dark"
+            : "border border-brand bg-white text-brand"
+        }`}
       >
+        <svg
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+        </svg>
         Foto das anotações
       </button>
-      {reading && <p role="status" className="text-sm text-stone-700">Lendo a foto…</p>}
+      {reading && (
+        <div role="status" className="space-y-1.5">
+          <p className="text-sm text-stone-700">Lendo a foto…</p>
+          <div className="mg-progress h-1 overflow-hidden rounded-full bg-brand-soft" aria-hidden="true" />
+        </div>
+      )}
       {state.kind === "error" && (
-        <div role="alert" className="space-y-2 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+        <Notice tone="error" role="alert">
           <p>{state.message}</p>
           {retryId && (
             <button
               type="button"
               onClick={() => void readAgain(retryId)}
-              className="min-h-11 rounded-lg border border-red-700 bg-white px-4 font-medium text-red-800"
+              className="mt-1 min-h-11 rounded-lg border border-red-700 bg-white px-4 font-medium text-red-900"
             >
               Tentar ler de novo
             </button>
           )}
-        </div>
+        </Notice>
       )}
     </div>
   );

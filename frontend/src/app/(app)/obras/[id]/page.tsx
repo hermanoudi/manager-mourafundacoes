@@ -47,7 +47,7 @@ function LocalDrafts({ jobId }: { jobId: number }) {
               <span className="font-medium">
                 {formatDateBR(d.work_date)} · {pilesLabel(d.lines.length)}
               </span>
-              <span className="block text-stone-500">
+              <span className="block text-stone-600">
                 {d.submit ? "Envio pendente · " : ""}salvo em {formatDateTimeBR(d.saved_at)}
               </span>
             </Link>
@@ -133,20 +133,20 @@ export default function ObraPage() {
           <JobForm key={`${job.status}-${job.id}`} initial={job} onSaved={update} />
         ) : (
           <dl className="grid max-w-xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
-            <dt className="text-stone-500">Cliente</dt>
+            <dt className="text-stone-600">Cliente</dt>
             <dd className="break-words">{job.customer.name}</dd>
-            <dt className="text-stone-500">Endereço</dt>
+            <dt className="text-stone-600">Endereço</dt>
             <dd className="break-words">
               {job.address.street}, {job.address.number} — {job.address.district},{" "}
               {job.address.city}/{job.address.state}
             </dd>
-            <dt className="text-stone-500">Início</dt>
+            <dt className="text-stone-600">Início</dt>
             <dd>{formatDateBR(job.start_date)}</dd>
-            <dt className="text-stone-500">Término</dt>
+            <dt className="text-stone-600">Término</dt>
             <dd>{formatDateBR(job.end_date)}</dd>
             {job.notes && (
               <>
-                <dt className="text-stone-500">Observações</dt>
+                <dt className="text-stone-600">Observações</dt>
                 <dd className="break-words">{job.notes}</dd>
               </>
             )}
@@ -157,7 +157,7 @@ export default function ObraPage() {
       {job.prices && (
         <section className="space-y-3">
           <h2 className="text-lg font-medium">Tabela contratada</h2>
-          {closed && <p className="text-sm text-stone-500">Obra encerrada: a tabela não pode mais mudar.</p>}
+          {closed && <p className="text-sm text-stone-600">Obra encerrada: a tabela não pode mais mudar.</p>}
           <PriceTableEditor
             table={job.prices}
             onSave={

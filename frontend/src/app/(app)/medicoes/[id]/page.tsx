@@ -3,20 +3,57 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DroppedEditsAlert } from "@/components/DroppedEditsAlert";
 import { inputClass } from "@/components/Field";
+import { Notice } from "@/components/Notice";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { formatDateBR, formatDateTimeBR } from "@/lib/dates";
 import { clearDraft, loadDraft } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
+import { clearSentFlash, peekSentFlash } from "@/lib/flash";
 import { formatDecimalBR } from "@/lib/format";
 import { formatMeters, pilesLabel, sameContent, type MeasurementOut } from "@/lib/measurements";
 
 const BTN = "min-h-11 rounded-lg px-4 font-medium disabled:opacity-60";
+
+/** Momento de alívio logo após lançar: o que foi registrado, em números, e para onde foi. */
+function SentBanner({ id }: { id: number }) {
+  const [flash] = useState(() => peekSentFlash(id));
+  useEffect(() => {
+    if (flash) clearSentFlash();
+  }, [flash]);
+  if (!flash) return null;
+  const approved = flash.status === "approved";
+  return (
+    <div role="status" className="flex items-center gap-3 rounded-lg bg-green-50 p-3 text-green-950">
+      <svg
+        viewBox="0 0 24 24"
+        width="28"
+        height="28"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="mg-check shrink-0 text-green-800"
+      >
+        <path d="M5 12.5l4.5 4.5L19 7.500" />
+      </svg>
+      <div className="min-w-0">
+        <p className="font-medium">{approved ? "Medição lançada e aprovada" : "Medição enviada"}</p>
+        <p data-numeric className="text-sm">
+          {`${pilesLabel(flash.piles)} · ${formatMeters(flash.total_m)}`}
+          {approved ? "" : " — aguardando aprovação do escritório"}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function MedicaoPage() {
   const { id } = useParams<{ id: string }>();
@@ -75,16 +112,18 @@ export default function MedicaoPage() {
 
   return (
     <div className="min-w-0 max-w-3xl space-y-6">
+      <SentBanner id={m.id} />
+
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">Medição #{m.id}</h1>
         <StatusBadge kind="measurement" status={m.status} />
       </div>
 
       {m.status === "rejected" && m.rejection_reason && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+        <Notice tone="error">
           <p className="font-medium">Motivo da rejeição</p>
           <p className="break-words">{m.rejection_reason}</p>
-        </div>
+        </Notice>
       )}
 
       {staleDraft && (
@@ -149,31 +188,31 @@ export default function MedicaoPage() {
       )}
 
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-lg bg-white p-3 text-sm shadow-sm">
-        <dt className="text-stone-500">Obra</dt>
+        <dt className="text-stone-600">Obra</dt>
         <dd className="break-words">
           <Link href={`/obras/${m.job.id}`} className="text-brand underline">{m.job.name}</Link>
         </dd>
-        <dt className="text-stone-500">Perfuratriz</dt>
+        <dt className="text-stone-600">Perfuratriz</dt>
         <dd className="break-words">{m.rig.name}</dd>
-        <dt className="text-stone-500">Data do serviço</dt>
+        <dt className="text-stone-600">Data do serviço</dt>
         <dd>{formatDateBR(m.work_date)}</dd>
-        <dt className="text-stone-500">Lançada por</dt>
+        <dt className="text-stone-600">Lançada por</dt>
         <dd className="break-words">{m.created_by.name}</dd>
         {m.submitted_at && (
           <>
-            <dt className="text-stone-500">Enviada em</dt>
+            <dt className="text-stone-600">Enviada em</dt>
             <dd>{formatDateTimeBR(m.submitted_at)}</dd>
           </>
         )}
         {m.reviewed_by && (
           <>
-            <dt className="text-stone-500">Revisada por</dt>
+            <dt className="text-stone-600">Revisada por</dt>
             <dd className="break-words">{m.reviewed_by.name} em {formatDateTimeBR(m.reviewed_at)}</dd>
           </>
         )}
         {m.notes && (
           <>
-            <dt className="text-stone-500">Observações</dt>
+            <dt className="text-stone-600">Observações</dt>
             <dd className="break-words">{m.notes}</dd>
           </>
         )}
@@ -189,7 +228,7 @@ export default function MedicaoPage() {
         )}
         <table className="w-full rounded-lg bg-white text-left text-sm shadow-sm">
           <thead>
-            <tr className="border-b text-stone-500">
+            <tr className="border-b text-stone-600">
               <th className="px-3 py-2 font-medium">Estaca</th>
               <th className="px-3 py-2 font-medium">Diâmetro</th>
               <th className="px-3 py-2 text-right font-medium">Profundidade</th>

@@ -46,11 +46,11 @@ export function PriceTableView({ table }: { table: PriceTableOut }) {
   return (
     <div className="max-w-xl space-y-3 rounded-lg bg-white p-3 text-sm shadow-sm">
       <dl className="grid grid-cols-2 gap-2">
-        <dt className="text-stone-500">Mobilização</dt>
+        <dt className="text-stone-600">Mobilização</dt>
         <dd>{formatMoneyBR(table.mobilization_fee)}</dd>
-        <dt className="text-stone-500">Valor mínimo</dt>
+        <dt className="text-stone-600">Valor mínimo</dt>
         <dd>{table.minimum_amount ? formatMoneyBR(table.minimum_amount) : "Sem mínimo"}</dd>
-        <dt className="text-stone-500">Profundidade tabelada</dt>
+        <dt className="text-stone-600">Profundidade tabelada</dt>
         <dd>até {formatDecimalBR(table.max_tabled_depth_m)} m</dd>
       </dl>
       <ul className="divide-y">

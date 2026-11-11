@@ -26,11 +26,11 @@ export default function PerfuratrizPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{data.name}</h1>
       <dl className="grid max-w-xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
-        <dt className="text-stone-500">Diâmetro máx.</dt>
+        <dt className="text-stone-600">Diâmetro máx.</dt>
         <dd>{data.max_diameter_cm} cm</dd>
-        <dt className="text-stone-500">Profundidade máx.</dt>
+        <dt className="text-stone-600">Profundidade máx.</dt>
         <dd>{formatDecimalBR(data.max_depth_m)} m</dd>
-        <dt className="text-stone-500">Status</dt>
+        <dt className="text-stone-600">Status</dt>
         <dd>{STATUS_LABEL[data.status]}</dd>
       </dl>
       {canWrite && (

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { useLogout, useMe } from "@/lib/auth";
@@ -36,12 +36,36 @@ function MobileNav({ items, active }: { items: NavItem[]; active: (href: string)
   const { primary, more } = splitNav(items);
   const [open, setOpen] = useState(false);
   const moreActive = more.some((i) => active(i.href));
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    // Foco entra no menu ao abrir e volta para "Mais" ao fechar (Esc, fundo ou escolha).
+    panel.current?.querySelector<HTMLElement>("a")?.focus();
+    const opener = trigger.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Tab" || !panel.current) return;
+      // Prende o Tab entre os itens do menu e o botão "Mais".
+      const stops = [...panel.current.querySelectorAll<HTMLElement>("a"), opener].filter(
+        (el): el is HTMLElement => !!el,
+      );
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus({ preventScroll: true });
+    };
   }, [open]);
 
   return (
@@ -56,6 +80,7 @@ function MobileNav({ items, active }: { items: NavItem[]; active: (href: string)
             className="fixed inset-0 z-10 cursor-default bg-black/30 md:hidden"
           />
           <div
+            ref={panel}
             role="dialog"
             aria-label="Mais opções"
             className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 space-y-1 border-t bg-white p-2 shadow-lg md:hidden"
@@ -95,6 +120,7 @@ function MobileNav({ items, active }: { items: NavItem[]; active: (href: string)
         ))}
         {more.length > 0 && (
           <button
+            ref={trigger}
             type="button"
             aria-expanded={open}
             aria-haspopup="dialog"
@@ -150,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between gap-3 border-b bg-white px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:hidden">
           <Image src="/brand/logo.png" alt="Moura Fundações" width={239} height={81} unoptimized className="h-8 w-auto" />
           <span className="min-w-0 flex-1 truncate text-right text-sm">{me?.name}</span>
-          <button onClick={logout} className="min-h-11 px-2 text-sm font-medium text-brand">
+          <button onClick={logout} className="min-h-11 min-w-11 px-2 text-sm font-medium text-brand">
             Sair
           </button>
         </header>

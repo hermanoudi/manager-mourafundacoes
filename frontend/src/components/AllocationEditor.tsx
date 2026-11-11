@@ -16,7 +16,7 @@ function Checks({ legend, options, selected, onToggle }: {
   return (
     <fieldset className="space-y-1">
       <legend className="text-sm font-medium">{legend}</legend>
-      {options.length === 0 && <p className="text-sm text-stone-500">Nenhum disponível.</p>}
+      {options.length === 0 && <p className="text-sm text-stone-600">Nenhum disponível.</p>}
       {options.map((o) => (
         <label key={o.id} className="flex min-h-11 items-center gap-3 text-base">
           <input
@@ -55,9 +55,9 @@ export function AllocationEditor({
   if (!canEdit) {
     return (
       <dl className="grid max-w-xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
-        <dt className="text-stone-500">Perfuratrizes</dt>
+        <dt className="text-stone-600">Perfuratrizes</dt>
         <dd>{job.rigs.map((r) => r.name).join(", ") || "—"}</dd>
-        <dt className="text-stone-500">Operadores</dt>
+        <dt className="text-stone-600">Operadores</dt>
         <dd>{job.operators.map((o) => o.name).join(", ") || "—"}</dd>
       </dl>
     );
@@ -94,7 +94,7 @@ export function AllocationEditor({
       <Checks legend="Perfuratrizes" options={rigOptions} selected={rigIds} onToggle={toggle(setRigIds)} />
       <Checks legend="Operadores" options={operators ?? []} selected={opIds} onToggle={toggle(setOpIds)} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {saved && <p className="text-sm text-green-700">Alocação salva</p>}
+      {saved && <p className="text-sm text-green-800">Alocação salva</p>}
       <button
         type="button"
         onClick={save}

@@ -74,11 +74,11 @@ export function DataList<T>({
         />
       )}
       {items.length === 0 ? (
-        <p className="py-6 text-center text-sm text-stone-500">{emptyText}</p>
+        <p className="py-6 text-center text-sm text-stone-600">{emptyText}</p>
       ) : isDesktop ? (
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b text-stone-500">
+            <tr className="border-b text-stone-600">
               {columns.map((c) => (
                 <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>
               ))}
@@ -89,6 +89,13 @@ export function DataList<T>({
               <tr
                 key={getKey(item)}
                 onClick={() => onSelect?.(item)}
+                tabIndex={onSelect ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (onSelect && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    onSelect(item);
+                  }
+                }}
                 className="min-h-11 cursor-pointer border-b hover:bg-stone-100"
               >
                 {columns.map((c) => (
@@ -105,7 +112,7 @@ export function DataList<T>({
               <Card interactive={!!onSelect} onClick={() => onSelect?.(item)}>
                 {columns.map((c, i) => (
                   <div key={c.key} className={i === 0 ? "font-medium" : "text-sm text-stone-600"}>
-                    {i > 0 && c.label && <span className="text-stone-400">{c.label}: </span>}
+                    {i > 0 && c.label && <span className="text-stone-600">{c.label}: </span>}
                     {cell(c, item)}
                   </div>
                 ))}
@@ -124,7 +131,7 @@ export function DataList<T>({
           >
             Anterior
           </button>
-          <span className="text-sm text-stone-500">
+          <span className="text-sm text-stone-600">
             {page} / {lastPage}
           </span>
           <button

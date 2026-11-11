@@ -148,7 +148,7 @@ export function JobForm({
           <textarea className={inputClass} rows={3} {...register("notes")} />
         </Field>
         {locked ? (
-          <p className="text-sm text-stone-500">Obra encerrada: dados bloqueados para edição.</p>
+          <p className="text-sm text-stone-600">Obra encerrada: dados bloqueados para edição.</p>
         ) : (
           <SubmitBar busy={isSubmitting} error={formError} saved={saved} />
         )}

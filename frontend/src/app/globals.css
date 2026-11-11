@@ -31,6 +31,73 @@ body {
   overflow-x: hidden;
 }
 
+/* Superfícies do navegador tematizadas com a paleta. */
+::selection {
+  background: var(--brand-tint);
+  color: var(--secondary-dark);
+}
+
+input,
+textarea,
+select {
+  caret-color: var(--brand);
+  accent-color: var(--brand);
+}
+
+/* Números de medição alinham em coluna. */
+table,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+h1 {
+  letter-spacing: -0.01em;
+}
+
+/* Leitura da foto: barra indeterminada; some quando o usuário pede menos movimento. */
+@keyframes mg-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+
+.mg-progress::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 30%;
+  border-radius: inherit;
+  background: var(--brand);
+  animation: mg-slide 1.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* Confirmação de envio: o traço do check se desenha uma vez. */
+@keyframes mg-draw {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+.mg-check path {
+  stroke-dasharray: 24;
+  animation: mg-draw 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+  .mg-check path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { DecimalInput } from "@/components/DecimalInput";
 import { Field, inputClass } from "@/components/Field";
 import {
@@ -53,7 +55,7 @@ export function validateLines(lines: LineInput[], rig: RigLimits | null) {
   return { errors, complete, valid: complete && errors.every((e) => e === null) };
 }
 
-function totals(lines: LineInput[]) {
+export function totals(lines: LineInput[]) {
   const byDiameter = new Map<number, { piles: number; h: number }>();
   for (const l of lines) {
     const d = Number(l.diameter_cm);
@@ -77,9 +79,28 @@ type Props = {
   rig: RigLimits | null;
 };
 
+/** Profundidade é o número que o operador digita o dia todo: maior e mais legível sob sol. */
+const depthClass =
+  "mt-1 block min-h-14 w-full rounded-lg border border-stone-300 bg-white px-3 text-xl font-medium tabular-nums";
+
 export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
   const { errors } = validateLines(lines, rig);
   const sum = totals(lines);
+  /** Última linha removida, para desfazer: um toque errado não perde a anotação. */
+  const [removed, setRemoved] = useState<{ line: LineInput; index: number; n: number } | null>(null);
+
+  function remove(i: number) {
+    setRemoved({ line: lines[i], index: i, n: i + 1 });
+    onChange(lines.filter((_, j) => j !== i));
+  }
+
+  function undo() {
+    if (!removed) return;
+    const next = [...lines];
+    next.splice(Math.min(removed.index, next.length), 0, removed.line);
+    onChange(next);
+    setRemoved(null);
+  }
   // Editar a linha conta como revisão: some o erro da leitura e valem as validações normais.
   const set = (i: number, patch: Partial<LineInput>) =>
     onChange(lines.map((l, j) => (j === i ? { ...l, ...patch, photo_error: undefined } : l)));
@@ -112,11 +133,26 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                   line.photo_error ? "bg-red-50 ring-2 ring-red-500" : errors[i] ? "bg-white ring-2 ring-red-300" : "bg-white"
                 }`}
               >
-                <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-stone-700">Linha {n}</span>
+                  {lines.length > 1 && (
+                    <button
+                      type="button"
+                      aria-label={`Remover linha ${n}`}
+                      onClick={() => remove(i)}
+                      className="-mr-2 min-h-11 rounded-lg px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-3">
                   <div className="col-span-2 md:col-span-1">
                     <Field label="Estaca">
                       <input
                         className={inputClass}
+                        aria-invalid={errors[i] ? true : undefined}
+                        aria-describedby={errors[i] ? `line-${i}-error` : undefined}
                         value={line.pile_code}
                         maxLength={20}
                         autoCapitalize="characters"
@@ -161,41 +197,52 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                   <div className="min-w-0">
                     <Field label="Profundidade (m)">
                       <DecimalInput
-                        className={inputClass}
+                        className={depthClass}
+                        aria-invalid={errors[i] ? true : undefined}
+                        aria-describedby={errors[i] ? `line-${i}-error` : undefined}
                         value={line.depth_m}
                         onChange={(v) => set(i, { depth_m: v })}
                       />
                     </Field>
                   </div>
-                  {lines.length > 1 && (
-                    <button
-                      type="button"
-                      aria-label={`Remover linha ${n}`}
-                      onClick={() => onChange(lines.filter((_, j) => j !== i))}
-                      className="col-span-2 min-h-11 rounded-lg border border-stone-300 px-3 text-sm text-stone-700 md:col-span-1 md:mt-6"
-                    >
-                      Remover
-                    </button>
-                  )}
                 </div>
-                {errors[i] && <p className="mt-2 text-sm text-red-700">{errors[i]}</p>}
+                {errors[i] && (
+                  <p id={`line-${i}-error`} className="mt-2 text-sm font-medium text-red-700">
+                    {errors[i]}
+                  </p>
+                )}
               </div>
             </li>
           );
         })}
       </ul>
+      {removed && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-lg bg-stone-800 py-1 pl-4 pr-1 text-sm text-white"
+        >
+          <span>{`Linha ${removed.n} removida`}</span>
+          <button
+            type="button"
+            onClick={undo}
+            className="min-h-11 rounded-lg px-4 font-medium text-brand-tint hover:bg-stone-700"
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
       <button
         type="button"
         onClick={add}
-        className="min-h-11 w-full rounded-lg border border-brand px-4 font-medium text-brand md:w-auto"
+        className="min-h-12 w-full rounded-lg border border-brand px-4 font-medium text-brand md:w-auto"
       >
         Adicionar estaca
       </button>
-      <div data-testid="lines-totals" className="rounded-lg bg-stone-100 p-3 text-sm">
+      <div data-testid="lines-totals" data-numeric className="rounded-lg bg-brand-soft p-3 text-sm text-stone-900">
         {sum.rows.map(([d, t]) => (
           <p key={d}>{`Ø ${d} cm: ${pilesLabel(t.piles)} · ${formatHundredths(t.h)} m`}</p>
         ))}
-        <p className="font-medium">{`Total: ${pilesLabel(sum.piles)} · ${formatHundredths(sum.h)} m`}</p>
+        <p className="mt-1 text-base font-semibold text-brand-dark">{`Total: ${pilesLabel(sum.piles)} · ${formatHundredths(sum.h)} m`}</p>
       </div>
     </div>
   );
