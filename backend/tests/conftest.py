@@ -35,17 +35,24 @@ def settings() -> Settings:
     )
 
 
-@pytest.fixture
-async def db_session(settings: Settings):
-    engine = create_async_engine(settings.database_url)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        yield session
+async def _reset(engine) -> None:
+    """Banco limpo + tabela de preços semeada (como depois da migration)."""
     tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
     if tables:
         async with engine.begin() as conn:
             await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
             await conn.run_sync(seed_price_table)
+
+
+@pytest.fixture
+async def db_session(settings: Settings):
+    engine = create_async_engine(settings.database_url)
+    # Também no início: sobras de outra execução (e2e no mesmo banco) não vazam para o teste.
+    await _reset(engine)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        yield session
+    await _reset(engine)
     await engine.dispose()
 
 
