@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import {
-  countMeasurements, createUser, firstMeasurement, jobInProgress, loginWith, noHorizontalScroll,
-  uniqueName,
+  countMeasurements, createUser, firstMeasurement, jobInProgress, loginAs, loginWith,
+  noHorizontalScroll, uniqueName,
 } from "./helpers";
 
 const line = (page: Page, n: number) => page.getByRole("group", { name: `Linha ${n}` });
@@ -35,6 +35,18 @@ test("operador lança duas estacas e envia", async ({ page }) => {
   await expectSubmitted(page, "20,50 m");
   await expect(page.getByRole("cell", { name: "E-2", exact: true })).toBeVisible();
   await noHorizontalScroll(page);
+  expect(await countMeasurements(job.id)).toBe(1);
+});
+
+test("admin lança duas estacas e a medição já nasce aprovada", async ({ page }) => {
+  const { job } = await jobInProgress();
+  await loginAs(page, "admin");
+  await fillTwoPiles(page, job.id);
+  await expect(page.getByRole("button", { name: "Enviar", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Lançar (já aprovada)" }).click();
+  await expect(page).toHaveURL(/\/medicoes\/\d+$/);
+  await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
+  await expect(page.getByTestId("measurement-total")).toContainText("20,50 m");
   expect(await countMeasurements(job.id)).toBe(1);
 });
 

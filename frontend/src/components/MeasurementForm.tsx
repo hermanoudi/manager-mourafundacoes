@@ -10,6 +10,7 @@ import type { JobOut } from "@/components/JobForm";
 import { LinesEditor, validateLines, type LineInput } from "@/components/LinesEditor";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { api } from "@/lib/api";
+import { useMe } from "@/lib/auth";
 import { todaySP } from "@/lib/dates";
 import { clearDraft, loadDraft, saveDraft, type MeasurementDraft } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
@@ -101,6 +102,9 @@ type Props = {
 export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
+  const { data: me } = useMe();
+  // Medição lançada pelo admin já nasce aprovada (regra do servidor); o botão avisa.
+  const sendLabel = me?.role === "admin" ? "Lançar (já aprovada)" : "Enviar";
   const [local] = useState(() => loadDraft(clientKey));
   const [values, setValues] = useState<Values>(() => fromSource(local ?? server, job));
   const [retry, setRetry] = useState<Retry | null>(() =>
@@ -333,7 +337,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
           disabled={busy || reading || hasPhotoErrors(values)}
           className="min-h-11 rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60"
         >
-          {busy ? "Enviando…" : "Enviar"}
+          {busy ? "Enviando…" : sendLabel}
         </button>
       </div>
     </form>

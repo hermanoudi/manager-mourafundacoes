@@ -73,6 +73,28 @@ def _mark_submitted(m: Measurement, now: datetime) -> None:
     m.rejection_reason, m.reviewed_by, m.reviewed_at = None, None, None
 
 
+async def _approve(
+    measurements: MeasurementRepository, user: User, now: datetime, m: Measurement
+) -> Measurement:
+    if missing := m.uncontracted_diameters:
+        raise Conflict(
+            "diameter_not_contracted",
+            "Diâmetros sem preço contratado na obra: "
+            + ", ".join(f"{d} cm" for d in missing),
+        )
+    m.status, m.reviewed_by, m.reviewed_at = MeasurementStatus.APPROVED, user.id, now
+    return await measurements.update(m)
+
+
+async def _auto_approve(
+    measurements: MeasurementRepository, user: User, now: datetime, m: Measurement
+) -> Measurement:
+    """Medição que o próprio admin lança já nasce aprovada (ele é quem aprovaria)."""
+    if user.role == Role.ADMIN and m.created_by == user.id and m.status == MeasurementStatus.SUBMITTED:
+        return await _approve(measurements, user, now, m)
+    return m
+
+
 def _check_author(user: User, m: Measurement) -> None:
     if user.role == Role.OPERATOR and m.created_by != user.id:
         raise _forbidden()
@@ -94,7 +116,8 @@ async def _edit(
         changed.rejection_reason, changed.reviewed_by, changed.reviewed_at = None, None, None
     if submit:
         _mark_submitted(changed, now)
-    return await measurements.update(changed)
+    saved = await measurements.update(changed)
+    return await _auto_approve(measurements, user, now, saved)
 
 
 async def get_measurement_for(
@@ -159,13 +182,15 @@ async def save_measurement(
         if submit:
             _mark_submitted(new, now)
         try:
-            return await measurements.add(new), True
+            saved = await measurements.add(new)
         except Conflict as exc:  # outra requisição gravou o mesmo client_key antes
             if exc.code != "duplicate_client_key":
                 raise
             existing = await measurements.get_by_client_key(client_key)
             if existing is None:
                 raise
+        else:
+            return await _auto_approve(measurements, user, now, saved), True
     return await _replay(measurements, jobs, user, now, existing, job_id, payload, submit), False
 
 
@@ -210,7 +235,8 @@ async def submit_measurement(
     _check_editable(m)
     await _validate(measurements, jobs, user, now, m)
     _mark_submitted(m, now)
-    return await measurements.update(m)
+    saved = await measurements.update(m)
+    return await _auto_approve(measurements, user, now, saved)
 
 
 def _check_reviewer(user: User) -> None:
@@ -228,14 +254,7 @@ async def approve_measurement(
         return m
     if m.status != MeasurementStatus.SUBMITTED:
         raise Conflict("invalid_status_transition", "Só medições enviadas podem ser aprovadas")
-    if missing := m.uncontracted_diameters:
-        raise Conflict(
-            "diameter_not_contracted",
-            "Diâmetros sem preço contratado na obra: "
-            + ", ".join(f"{d} cm" for d in missing),
-        )
-    m.status, m.reviewed_by, m.reviewed_at = MeasurementStatus.APPROVED, user.id, now
-    return await measurements.update(m)
+    return await _approve(measurements, user, now, m)
 
 
 async def reject_measurement(

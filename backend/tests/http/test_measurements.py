@@ -364,3 +364,77 @@ async def test_complete_job_with_pending_measurement_409(ctx):
     assert resp.json()["code"] == "pending_measurements"
     await ctx.office.post(f"/api/measurements/{m['id']}/approve")
     assert (await ctx.office.patch(job_url, json={"status": "completed"})).status_code == 200
+
+
+# --- medição lançada por admin já nasce aprovada ---------------------------------------------
+
+
+async def test_admin_submit_on_create_is_approved(ctx, login_user):
+    admin, admin_id = await login_user("admin@moura.test", "admin")
+    payload = body(ctx, [line("E-1", 30), line("E-2", 40)], submit=True)
+    m = await create(admin, payload, 201)
+    assert m["status"] == "approved"
+    assert m["created_by"]["id"] == admin_id
+    assert m["reviewed_by"]["id"] == admin_id
+    assert m["reviewed_at"] is not None
+    assert m["submitted_at"] is not None
+    # reenvio com o mesmo client_key devolve a mesma medição, inalterada
+    again = await create(admin, payload, 200)
+    assert again["id"] == m["id"]
+    assert again["status"] == "approved"
+    assert again["reviewed_at"] == m["reviewed_at"]
+    listed = (await ctx.office.get("/api/measurements", params={"job_id": ctx.job_id})).json()
+    assert listed["total"] == 1
+
+
+async def test_admin_draft_stays_draft_until_sent(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    payload = body(ctx, [line("E-1")])
+    draft = await create(admin, payload, 201)
+    assert draft["status"] == "draft"
+    assert draft["reviewed_by"] is None
+    sent = await create(admin, {**payload, "submit": True}, 200)
+    assert sent["id"] == draft["id"]
+    assert sent["status"] == "approved"
+
+
+async def test_admin_submit_endpoint_on_own_draft_is_approved(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    draft = await create(admin, body(ctx, [line("E-1")]))
+    resp = await admin.post(f"/api/measurements/{draft['id']}/submit")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "approved"
+    assert resp.json()["reviewed_by"] is not None
+
+
+async def test_admin_uncontracted_diameter_is_blocked_and_not_saved(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    resp = await admin.post(
+        "/api/measurements", json=body(ctx, [line("E-1", 30), line("E-2", 50)], submit=True)
+    )
+    assert resp.status_code == 409
+    assert resp.json()["code"] == "diameter_not_contracted"
+    listed = (await ctx.office.get("/api/measurements", params={"job_id": ctx.job_id})).json()
+    assert listed["total"] == 0
+
+
+async def test_office_submit_still_waits_for_review(ctx):
+    m = await create(ctx.office, body(ctx, [line("E-1")], submit=True), 201)
+    assert m["status"] == "submitted"
+    assert m["reviewed_by"] is None
+
+
+async def test_admin_submitting_operators_draft_does_not_approve_it(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    draft = await create(ctx.op_a, body(ctx, [line("E-1")]))
+    resp = await admin.post(f"/api/measurements/{draft['id']}/submit")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "submitted"
+    assert resp.json()["reviewed_by"] is None
+
+
+async def test_job_with_admin_measurement_can_be_completed(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    await create(admin, body(ctx, [line("E-1")], submit=True), 201)
+    resp = await ctx.office.patch(f"/api/jobs/{ctx.job_id}", json={"status": "completed"})
+    assert resp.status_code == 200, resp.text
