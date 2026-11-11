@@ -43,6 +43,20 @@ describe("api()", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
+  it("envia JSON com content-type application/json", async () => {
+    mockFetch(200, { ok: true });
+    await api("/x", { method: "POST", body: JSON.stringify({ a: 1 }) });
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).get("content-type")).toBe("application/json");
+  });
+
+  it("não define content-type com FormData (o navegador põe o boundary do multipart)", async () => {
+    mockFetch(201, { ok: true });
+    await api("/x", { method: "POST", body: new FormData() });
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).has("content-type")).toBe(false);
+  });
+
   it("retorna JSON em sucesso e undefined em 204", async () => {
     mockFetch(200, { ok: true });
     expect(await api("/api/x")).toEqual({ ok: true });

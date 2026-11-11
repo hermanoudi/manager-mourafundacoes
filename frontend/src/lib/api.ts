@@ -11,7 +11,8 @@ export class ApiError extends Error {
 
 export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body !== undefined && !headers.has("content-type")) {
+  // FormData: o navegador define multipart/form-data com o boundary; forçar JSON quebraria o upload.
+  if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
   const res = await fetch(path, { ...init, headers, credentials: "same-origin" });
