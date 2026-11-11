@@ -1,12 +1,26 @@
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from decimal import Decimal
 
 import httpx
 import pytest
 
+from moura_gestao.application.measurements import save_measurement, submit_measurement
 from moura_gestao.application.photos import normalize_extracted
-from moura_gestao.domain.errors import DomainError
+from moura_gestao.domain.dates import today_sp
+from moura_gestao.domain.errors import Conflict, DomainError
+from moura_gestao.domain.jobs import JobStatus
+from moura_gestao.domain.measurements import MeasurementLine
 from moura_gestao.domain.photos import RawLine
 from moura_gestao.infrastructure.extractors import FakeNotesExtractor, GeminiNotesExtractor
+from moura_gestao.infrastructure.models import JobModel
+from moura_gestao.infrastructure.repositories import (
+    SqlJobRepository,
+    SqlMeasurementRepository,
+    SqlPhotoRepository,
+    SqlUserRepository,
+)
 from moura_gestao.infrastructure.storage import LocalFileStorage
 from moura_gestao.interfaces.http.deps import get_extractor, get_storage
 from moura_gestao.interfaces.http.routes.photos import _limited
@@ -31,6 +45,7 @@ class Ctx:
     job_id: int
     rig_id: int
     other_job_id: int
+    op_a_id: int
 
 
 async def _start_job(office, cid: int, rig_id: int, op_id: int, name: str) -> int:
@@ -52,7 +67,7 @@ async def ctx(app, login_user, tmp_path) -> Ctx:
     rig_id = await make_rig(office)
     job_id = await _start_job(office, cid, rig_id, a_id, "Obra Alfa")
     other = await _start_job(office, cid, rig_id, a_id, "Obra Beta")
-    return Ctx(app, office, op_a, op_b, job_id, rig_id, other)
+    return Ctx(app, office, op_a, op_b, job_id, rig_id, other, a_id)
 
 
 async def upload(client, job_id: int, data: bytes = JPEG, content_type: str = "image/jpeg"):
@@ -214,6 +229,51 @@ async def test_measurement_with_photo_from_other_job_422(ctx):
     unknown = "00000000-0000-0000-0000-000000000000"
     resp = await ctx.op_a.post("/api/measurements", json=body(ctx, photo_id=unknown))
     assert resp.status_code == 422
+
+
+async def _repos(db_session):
+    return (
+        SqlMeasurementRepository(db_session), SqlJobRepository(db_session),
+        SqlPhotoRepository(db_session),
+    )
+
+
+async def test_photo_measurement_rereads_job_after_lock(ctx, db_session):
+    """Obra concluída entre a leitura pré-lock e o lock: a sessão não pode usar a cópia em cache."""
+    photo_id = (await upload(ctx.op_a, ctx.job_id)).json()["photo_id"]
+    measurements, jobs, photos = await _repos(db_session)
+    user = await SqlUserRepository(db_session).get(ctx.op_a_id)
+    # Mantém a obra no mapa de identidade (fraco): sem a referência, o GC a descartaria.
+    held = await db_session.get(JobModel, ctx.job_id)
+    assert held.status == JobStatus.IN_PROGRESS.value
+    resp = await ctx.office.patch(f"/api/jobs/{ctx.job_id}", json={"status": "completed"})
+    assert resp.status_code == 200, resp.text
+    now = datetime.now(UTC)
+    with pytest.raises(Conflict) as exc:
+        await save_measurement(
+            measurements, jobs, photos, user, now,
+            client_key=uuid.uuid4(), job_id=ctx.job_id, rig_id=ctx.rig_id,
+            work_date=today_sp(now), lines=[MeasurementLine("E-1", 30, Decimal("8.5"))],
+            photo_id=uuid.UUID(photo_id), submit=True,
+        )
+    assert exc.value.code == "job_not_in_progress"
+
+
+async def test_submit_rereads_job_after_lock(ctx, db_session):
+    draft = await ctx.op_a.post("/api/measurements", json=body(ctx))
+    assert draft.status_code == 201, draft.text
+    measurements, jobs, _ = await _repos(db_session)
+    user = await SqlUserRepository(db_session).get(ctx.op_a_id)
+    # Mantém a obra no mapa de identidade (fraco): sem a referência, o GC a descartaria.
+    held = await db_session.get(JobModel, ctx.job_id)
+    assert held.status == JobStatus.IN_PROGRESS.value
+    resp = await ctx.office.patch(f"/api/jobs/{ctx.job_id}", json={"status": "completed"})
+    assert resp.status_code == 200, resp.text
+    with pytest.raises(Conflict) as exc:
+        await submit_measurement(
+            measurements, jobs, user, datetime.now(UTC), draft.json()["id"]
+        )
+    assert exc.value.code == "job_not_in_progress"
 
 
 async def test_normalize_extracted_variants():

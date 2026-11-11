@@ -322,6 +322,7 @@ class SqlJobRepository:
                 .join(JobRigModel, JobRigModel.rig_id == DrillRigModel.id)
                 .where(JobRigModel.job_id == m.id)
                 .order_by(DrillRigModel.name)
+                .execution_options(populate_existing=True)  # limites da perfuratriz atuais
             )
         ).scalars()
         operators = (
@@ -350,8 +351,10 @@ class SqlJobRepository:
         await self._s.refresh(m)
         return await self._hydrate(m)
 
+    # populate_existing: quem valida o status depois do lock da obra (medições) precisa do banco,
+    # não da cópia que o mapa de identidade guardou de uma leitura anterior ao lock
     async def get(self, job_id: int) -> Job | None:
-        m = await self._s.get(JobModel, job_id)
+        m = await self._s.get(JobModel, job_id, populate_existing=True)
         return await self._hydrate(m) if m else None
 
     async def update(self, job: Job) -> Job:
