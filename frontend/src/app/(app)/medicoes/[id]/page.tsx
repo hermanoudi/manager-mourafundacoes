@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
+import { DroppedEditsAlert } from "@/components/DroppedEditsAlert";
 import { inputClass } from "@/components/Field";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { formatDateBR, formatDateTimeBR } from "@/lib/dates";
+import { clearDraft, loadDraft } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
 import { formatDecimalBR } from "@/lib/format";
-import { formatMeters, pilesLabel, type MeasurementOut } from "@/lib/measurements";
+import { formatMeters, pilesLabel, sameContent, type MeasurementOut } from "@/lib/measurements";
 
 const BTN = "min-h-11 rounded-lg px-4 font-medium disabled:opacity-60";
 
@@ -29,6 +31,7 @@ export default function MedicaoPage() {
   const [reason, setReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [staleDraft, setStaleDraft] = useState<string | null>(null);
 
   if (error) return <p role="alert">{messageFor(error)}</p>;
   if (!m) return <p>Carregando…</p>;
@@ -41,11 +44,18 @@ export default function MedicaoPage() {
     setBusy(true);
     setActionError(null);
     try {
-      const saved = await api<MeasurementOut>(`/api/measurements/${id}/${path}`, {
+      const saved = await api<MeasurementOut | null>(`/api/measurements/${id}/${path}`, {
         method: "POST",
         body: body === undefined ? undefined : JSON.stringify(body),
       });
+      if (!saved || typeof saved.id !== "number") throw new TypeError("resposta incompleta");
       qc.setQueryData(["measurement", id], saved);
+      if (path === "submit") {
+        // Rascunho local da mesma medição: some se bate com o enviado; senão o usuário decide.
+        const local = loadDraft(saved.client_key);
+        if (local && sameContent(local, saved)) clearDraft(saved.client_key);
+        else if (local) setStaleDraft(saved.client_key);
+      }
       await qc.invalidateQueries({ queryKey: ["measurements"] });
       setRejecting(false);
     } catch (err) {
@@ -75,6 +85,16 @@ export default function MedicaoPage() {
           <p className="font-medium">Motivo da rejeição</p>
           <p className="break-words">{m.rejection_reason}</p>
         </div>
+      )}
+
+      {staleDraft && (
+        <DroppedEditsAlert
+          measurementId={m.id}
+          onDiscard={() => {
+            clearDraft(staleDraft);
+            setStaleDraft(null);
+          }}
+        />
       )}
 
       {(canReview || canEdit) && (

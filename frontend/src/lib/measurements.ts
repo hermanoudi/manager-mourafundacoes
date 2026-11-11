@@ -76,4 +76,26 @@ export function formatMeters(apiValue: string): string {
   return `${h === null ? apiValue : formatHundredths(h)} m`;
 }
 
-export const pilesLabel = (n: number) => `${n} ${n === 1 ? "estaca" : "estacas"}`;
+type Comparable = { pile_code: string; diameter_cm: number | null; depth_m: string };
+
+const lineSig = (l: Comparable) => `${pileKey(l.pile_code)}|${l.diameter_cm}|${toHundredths(l.depth_m)}`;
+const linesSig = (lines: Comparable[]) => lines.map(lineSig).sort().join(";");
+
+/** O que o servidor devolveu tem o mesmo conteúdo do payload enviado (estaca pela pile_key, profundidade em centésimos)? */
+export function sameContent(payload: MeasurementIn, out: MeasurementOut): boolean {
+  if (payload.lines.some((l) => l.diameter_cm == null || toHundredths(l.depth_m) === null)) return false;
+  return (
+    payload.rig_id === out.rig.id &&
+    payload.work_date === out.work_date &&
+    (payload.notes?.trim() || null) === (out.notes?.trim() || null) &&
+    payload.lines.length === out.lines.length &&
+    linesSig(payload.lines) === linesSig(out.lines)
+  );
+}
+
+/** Servidor já tinha a medição enviada/aprovada com outro conteúdo: o reenvio não aplicou as alterações. */
+export function editsDropped(payload: MeasurementIn, out: MeasurementOut): boolean {
+  return (out.status === "submitted" || out.status === "approved") && !sameContent(payload, out);
+}
+
+export const pilesLabel =(n: number) => `${n} ${n === 1 ? "estaca" : "estacas"}`;

@@ -133,6 +133,18 @@ export async function countMeasurements(jobId: number): Promise<number> {
   return total;
 }
 
+export async function firstMeasurement(jobId: number) {
+  const api = await adminApi();
+  const list = await api.get(`/api/measurements?job_id=${jobId}`);
+  expect(list.ok()).toBeTruthy();
+  const { items } = (await list.json()) as { items: { id: number }[] };
+  const res = await api.get(`/api/measurements/${items[0].id}`);
+  expect(res.ok()).toBeTruthy();
+  const m = (await res.json()) as { id: number; status: string; lines: { depth_m: string }[] };
+  await api.dispose();
+  return m;
+}
+
 export const CEP_BODY = {
   cep: "38400-000",
   logradouro: "Avenida Rondon Pacheco",

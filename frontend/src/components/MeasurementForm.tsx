@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { DroppedEditsAlert } from "@/components/DroppedEditsAlert";
 import { Field, inputClass } from "@/components/Field";
 import type { JobOut } from "@/components/JobForm";
 import { LinesEditor, validateLines, type LineInput } from "@/components/LinesEditor";
@@ -12,7 +13,7 @@ import { todaySP } from "@/lib/dates";
 import { clearDraft, loadDraft, saveDraft, type MeasurementDraft } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
 import { formatDecimalBR, toApiDecimal } from "@/lib/format";
-import type { MeasurementIn, MeasurementOut } from "@/lib/measurements";
+import { editsDropped, type MeasurementIn, type MeasurementOut } from "@/lib/measurements";
 import { nullIfEmpty } from "@/lib/schemas";
 
 type Values = { rigId: string; workDate: string; lines: LineInput[]; notes: string };
@@ -80,6 +81,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dropped, setDropped] = useState<MeasurementOut | null>(null);
   const [maxDate] = useState(() => todaySP());
 
   const photoId = local?.photo_id ?? server?.photo_id ?? null;
@@ -129,14 +131,24 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
     persist(values, submit);
     setBusy(true);
     setError(null);
+    setDropped(null);
+    const payload = toPayload(values, submit);
     try {
-      const m = await api<MeasurementOut>("/api/measurements", {
+      const m = await api<MeasurementOut | null>("/api/measurements", {
         method: "POST",
-        body: JSON.stringify(toPayload(values, submit)),
+        body: JSON.stringify(payload),
       });
-      clearDraft(clientKey);
+      // Corpo truncado/ilegível: o servidor não confirmou nada, o rascunho fica.
+      if (!m || typeof m.id !== "number") throw new TypeError("resposta incompleta");
       qc.setQueryData(["measurement", String(m.id)], m);
       await qc.invalidateQueries({ queryKey: ["measurements"] });
+      if (editsDropped(payload, m)) {
+        setRetry(null);
+        setDropped(m);
+        setBusy(false);
+        return;
+      }
+      clearDraft(clientKey);
       router.push(`/medicoes/${m.id}`);
     } catch (err) {
       if (err instanceof TypeError) {
@@ -162,6 +174,15 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
           Motivo da rejeição: {server.rejection_reason}
         </p>
+      )}
+      {dropped && (
+        <DroppedEditsAlert
+          measurementId={dropped.id}
+          onDiscard={() => {
+            clearDraft(clientKey);
+            router.push(`/medicoes/${dropped.id}`);
+          }}
+        />
       )}
       {retry && (
         <div role="status" className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">

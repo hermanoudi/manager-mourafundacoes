@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import {
-  allocateJob, countMeasurements, createCustomer, createJob, createRig, createUser, loginWith,
+  allocateJob, countMeasurements, createCustomer, createJob, createRig, createUser, firstMeasurement,
+  loginWith,
   setJobPrices, startJob, uniqueName,
 } from "./helpers";
 
@@ -99,6 +100,43 @@ test("resposta perdida: o reenvio devolve a mesma medição", async ({ page }) =
   await page.unroute("**/api/measurements");
   await page.getByRole("button", { name: "Reenviar" }).click();
   await expectSubmitted(page, "20,50 m");
+  expect(await countMeasurements(job.id)).toBe(1);
+});
+
+test("resposta perdida + edição local: avisa e não descarta o rascunho em silêncio", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  await loginWith(page, op);
+  await fillTwoPiles(page, job.id);
+
+  await page.route("**/api/measurements", async (route) => {
+    await route.fetch();
+    await route.abort();
+  });
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("Sem conexão — a medição ficou salva neste aparelho")).toBeVisible();
+  await page.unroute("**/api/measurements");
+
+  await line(page, 2).getByLabel("Profundidade (m)").fill("13");
+  await page.getByRole("button", { name: "Reenviar" }).click();
+  const warning = "Esta medição já tinha sido enviada; suas alterações não foram aplicadas.";
+  await expect(page.getByRole("alert").filter({ hasText: warning })).toBeVisible();
+  await expect(page).toHaveURL(/\/medicoes\/nova/);
+  expect(await countMeasurements(job.id)).toBe(1);
+  expect((await firstMeasurement(job.id)).lines.map((l) => l.depth_m)).toEqual(["8.50", "12.00"]);
+
+  await page.goto(`/obras/${job.id}`);
+  const drafts = page.getByRole("region", { name: "Rascunhos neste aparelho" });
+  await expect(drafts.getByRole("link")).toHaveCount(1);
+  await drafts.getByRole("link").click();
+  await expect(line(page, 2).getByLabel("Profundidade (m)")).toHaveValue("13");
+  await page.getByRole("button", { name: "Reenviar" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: warning })).toBeVisible();
+  await page.getByRole("button", { name: "Descartar rascunho local" }).click();
+  await expectSubmitted(page, "20,50 m");
+
+  await page.goto(`/obras/${job.id}`);
+  await expect(page.getByRole("heading", { name: job.name })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Rascunhos neste aparelho" })).toHaveCount(0);
   expect(await countMeasurements(job.id)).toBe(1);
 });
 
