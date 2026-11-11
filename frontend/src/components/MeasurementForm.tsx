@@ -113,6 +113,8 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   /** Linhas vieram da foto (agora ou num rascunho reaberto): mostra o aviso de conferência. */
   const [fromPhoto, setFromPhoto] = useState(() => values.photoId !== null);
   const [photoWarnings, setPhotoWarnings] = useState<string[]>([]);
+  /** Foto sendo lida: enviar agora levaria `photo_id: null` e a foto nunca seria anexada. */
+  const [reading, setReading] = useState(false);
 
   const rig = job.rigs.find((r) => String(r.id) === values.rigId) ?? null;
 
@@ -180,6 +182,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   }
 
   async function send(submit: boolean) {
+    if (submit && reading) return;
     const msg = problem(values, rig);
     if (msg) {
       setError(msg);
@@ -289,6 +292,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
           jobId={job.id}
           onExtracted={applyExtraction}
           onError={(_code, photoId) => attachPhoto(photoId)}
+          onReadingChange={setReading}
         />
         {fromPhoto && (
           <div role="note" className="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
@@ -314,6 +318,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
       </Field>
 
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {reading && <p className="text-sm text-stone-700">Aguarde a leitura da foto para enviar</p>}
       <div className="flex flex-col gap-2 md:flex-row">
         <button
           type="button"
@@ -325,7 +330,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         </button>
         <button
           type="submit"
-          disabled={busy || hasPhotoErrors(values)}
+          disabled={busy || reading || hasPhotoErrors(values)}
           className="min-h-11 rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60"
         >
           {busy ? "Enviando…" : "Enviar"}

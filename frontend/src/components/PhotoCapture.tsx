@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
 import { messageFor, messageForCode } from "@/lib/errors";
@@ -22,6 +22,8 @@ type Props = {
   onExtracted: (photoId: string, extraction: Extraction) => void;
   /** `photoId` quando a foto foi gravada mas não lida: a medição ainda pode levá-la anexada. */
   onError: (code: string, photoId: string | null) => void;
+  /** Leitura em andamento: o formulário não envia antes de a foto ser anexada. */
+  onReadingChange?: (reading: boolean) => void;
 };
 
 /**
@@ -29,9 +31,14 @@ type Props = {
  * câmera e galeria (no canteiro sem sinal, fotografa agora e envia depois). A IA só preenche o
  * formulário; quem cria a medição é o operador ao enviar.
  */
-export function PhotoCapture({ jobId, onExtracted, onError }: Props) {
+export function PhotoCapture({ jobId, onExtracted, onError, onReadingChange }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>({ kind: "idle" });
+  const reading = state.kind === "reading";
+
+  useEffect(() => {
+    onReadingChange?.(reading);
+  }, [reading, onReadingChange]);
 
   function done(photoId: string, extraction: Extraction) {
     if (extraction.lines.length === 0) {
@@ -82,7 +89,6 @@ export function PhotoCapture({ jobId, onExtracted, onError }: Props) {
     }
   }
 
-  const reading = state.kind === "reading";
   const retryId = state.kind === "error" ? state.retryPhotoId : null;
   return (
     <div className="space-y-2">

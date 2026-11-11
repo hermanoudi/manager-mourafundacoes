@@ -70,6 +70,33 @@ test("remover a linha ilegível também libera o envio", async ({ page }) => {
   expect(await countMeasurements(job.id)).toBe(1);
 });
 
+test("enquanto lê a foto, Enviar fica bloqueado (a medição não sai sem a foto)", async ({ page }) => {
+  const job = await openForm(page);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(PHOTOS, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await line(page, 1).getByLabel("Estaca").fill("E-9");
+  await line(page, 1).getByLabel("Profundidade (m)").fill("5");
+  await expect(sendButton(page)).toBeEnabled();
+
+  await photoInput(page).setInputFiles(FIXTURE);
+  await expect(page.getByText("Lendo a foto…")).toBeVisible();
+  await expect(sendButton(page)).toBeDisabled();
+  await expect(page.getByText("Aguarde a leitura da foto para enviar")).toBeVisible();
+
+  release();
+  await expect(page.getByText("Lendo a foto…")).toHaveCount(0);
+  await expect(lines(page)).toHaveCount(4);
+  await page.getByRole("button", { name: "Remover linha 4" }).click();
+  await expect(sendButton(page)).toBeEnabled();
+  await sendButton(page).click();
+  await expect(page.getByTestId("measurement-status")).toHaveText("Enviada");
+  expect((await firstMeasurement(job.id)).photo_id).not.toBeNull();
+});
+
 test("falha na leitura: avisa e a digitação continua, com a foto anexada", async ({ page }) => {
   const job = await openForm(page);
   // Resposta real (foto gravada de verdade), mas como se a IA tivesse falhado.
