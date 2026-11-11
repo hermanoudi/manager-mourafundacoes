@@ -1,10 +1,20 @@
 import { expect, test } from "@playwright/test";
 
-import { loginAs, PASSWORD, uniqueName } from "./helpers";
+import { loginAs, PASSWORD } from "./helpers";
+
+/**
+ * A lista de usuários é paginada e ordenada por nome, sem busca. Nome único que fica na 1ª página
+ * em qualquer banco: começa com dígito (antes das letras dos outros testes) e a chave decresce com
+ * o tempo (o mais novo vem antes dos criados em execuções anteriores).
+ */
+function firstSortingName() {
+  const key = (1e13 - Date.now()).toString(36).padStart(9, "0");
+  return `0${key}${Math.floor(Math.random() * 1e4)} Operador`;
+}
 
 test("admin cria operador, desativa e o login falha", async ({ page, browser }) => {
   await loginAs(page, "admin");
-  const name = uniqueName("Operador");
+  const name = firstSortingName();
   const email = `${name.toLowerCase().replace(/\s+/g, "-")}@moura.test`;
 
   await page.goto("/usuarios");
