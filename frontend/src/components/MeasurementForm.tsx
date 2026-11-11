@@ -8,15 +8,24 @@ import { DroppedEditsAlert } from "@/components/DroppedEditsAlert";
 import { Field, inputClass } from "@/components/Field";
 import type { JobOut } from "@/components/JobForm";
 import { LinesEditor, validateLines, type LineInput } from "@/components/LinesEditor";
+import { PhotoCapture } from "@/components/PhotoCapture";
 import { api } from "@/lib/api";
 import { todaySP } from "@/lib/dates";
 import { clearDraft, loadDraft, saveDraft, type MeasurementDraft } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
 import { formatDecimalBR, toApiDecimal } from "@/lib/format";
-import { editsDropped, type MeasurementIn, type MeasurementOut } from "@/lib/measurements";
+import {
+  editsDropped, type ExtractedLine, type Extraction, type MeasurementIn, type MeasurementOut,
+} from "@/lib/measurements";
 import { nullIfEmpty } from "@/lib/schemas";
 
-type Values = { rigId: string; workDate: string; lines: LineInput[]; notes: string };
+type Values = {
+  rigId: string;
+  workDate: string;
+  lines: LineInput[];
+  notes: string;
+  photoId: string | null;
+};
 /** Envio tentado e não confirmado: `submit` é o que reenviar; `offline` = falha de rede agora. */
 type Retry = { submit: boolean; offline: boolean };
 
@@ -33,6 +42,7 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
         depth_m: "",
       }],
       notes: "",
+      photoId: null,
     };
   }
   const rigId = "rig" in src ? src.rig.id : src.rig_id;
@@ -46,10 +56,26 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
       depth_m: formatDecimalBR(l.depth_m),
     })),
     notes: src.notes ?? "",
+    photoId: src.photo_id ?? null,
   };
 }
 
+/** Linha lida da foto → linha do editor; a inválida vem marcada com o motivo do servidor. */
+function fromExtracted(l: ExtractedLine, diameters: number[]): LineInput {
+  return {
+    pile_code: l.pile_code,
+    diameter_cm: l.diameter_cm == null ? "" : String(l.diameter_cm),
+    custom: l.diameter_cm == null ? diameters.length === 0 : !diameters.includes(l.diameter_cm),
+    depth_m: l.depth_m == null ? "" : formatDecimalBR(l.depth_m),
+    photo_error: l.valid ? undefined : (l.error ?? "Linha não reconhecida"),
+  };
+}
+
+const isBlank = (l: LineInput) => l.pile_code.trim() === "" && l.depth_m === "";
+const hasPhotoErrors = (v: Values) => v.lines.some((l) => l.photo_error);
+
 function problem(v: Values, rig: JobOut["rigs"][number] | null): string | null {
+  if (hasPhotoErrors(v)) return "Corrija ou remova as linhas lidas da foto destacadas";
   if (!rig) return "Selecione a perfuratriz";
   if (!v.workDate) return "Informe a data do serviço";
   if (v.workDate > todaySP()) return "A data não pode ser futura";
@@ -67,9 +93,10 @@ type Props = {
 };
 
 /**
- * Lançamento por digitação. O rascunho fica no aparelho a cada mudança e "Salvar rascunho"/"Enviar"
- * sempre fazem POST com o mesmo client_key (o servidor faz upsert); o rascunho local só é apagado
- * depois que o servidor confirma.
+ * Lançamento por digitação ou pela foto das anotações (a IA só preenche as linhas para revisão;
+ * `photo_id` vai junto no rascunho e no envio). O rascunho fica no aparelho a cada mudança e
+ * "Salvar rascunho"/"Enviar" sempre fazem POST com o mesmo client_key (o servidor faz upsert); o
+ * rascunho local só é apagado depois que o servidor confirma.
  */
 export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const router = useRouter();
@@ -83,8 +110,10 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const [busy, setBusy] = useState(false);
   const [dropped, setDropped] = useState<MeasurementOut | null>(null);
   const [maxDate] = useState(() => todaySP());
+  /** Linhas vieram da foto (agora ou num rascunho reaberto): mostra o aviso de conferência. */
+  const [fromPhoto, setFromPhoto] = useState(() => values.photoId !== null);
+  const [photoWarnings, setPhotoWarnings] = useState<string[]>([]);
 
-  const photoId = local?.photo_id ?? server?.photo_id ?? null;
   const rig = job.rigs.find((r) => String(r.id) === values.rigId) ?? null;
 
   function toPayload(v: Values, submit: boolean): MeasurementIn {
@@ -99,7 +128,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         depth_m: toApiDecimal(l.depth_m),
       })),
       notes: nullIfEmpty(v.notes),
-      photo_id: photoId,
+      photo_id: v.photoId,
       submit,
     };
   }
@@ -120,6 +149,34 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
     setValues(next);
     setError(null);
     persist(next, retry?.submit ?? false);
+  }
+
+  /**
+   * Resposta da foto chega depois de segundos: aplica sobre o estado mais recente (o operador pode
+   * ter digitado enquanto lia). Persistir no updater é idempotente (mesmo rascunho, mesma URL).
+   */
+  function update(fn: (v: Values) => Values) {
+    setError(null);
+    setValues((prev) => {
+      const next = fn(prev);
+      persist(next, retry?.submit ?? false);
+      return next;
+    });
+  }
+
+  function applyExtraction(photoId: string, extraction: Extraction) {
+    setFromPhoto(true);
+    setPhotoWarnings(extraction.warnings);
+    update((prev) => {
+      // A linha em branco inicial dá lugar às lidas; o que já foi digitado fica antes delas.
+      const read = extraction.lines.map((l) => fromExtracted(l, job.contracted_diameters));
+      const lines = [...prev.lines.filter((l) => !isBlank(l)), ...read];
+      return { ...prev, photoId, lines: lines.length ? lines : prev.lines };
+    });
+  }
+
+  function attachPhoto(photoId: string | null) {
+    if (photoId) update((prev) => ({ ...prev, photoId }));
   }
 
   async function send(submit: boolean) {
@@ -228,6 +285,17 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium">Estacas</h2>
+        <PhotoCapture
+          jobId={job.id}
+          onExtracted={applyExtraction}
+          onError={(_code, photoId) => attachPhoto(photoId)}
+        />
+        {fromPhoto && (
+          <div role="note" className="space-y-1 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">Confira as linhas lidas da foto antes de enviar</p>
+            {photoWarnings.map((w) => <p key={w}>{w}</p>)}
+          </div>
+        )}
         <LinesEditor
           lines={values.lines}
           onChange={(lines) => change({ lines })}
@@ -257,7 +325,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         </button>
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || hasPhotoErrors(values)}
           className="min-h-11 rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60"
         >
           {busy ? "Enviando…" : "Enviar"}

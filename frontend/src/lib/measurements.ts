@@ -43,6 +43,23 @@ export type MeasurementOut = MeasurementSummary & {
   lines: { pile_code: string; diameter_cm: number; depth_m: string }[];
 };
 
+/** Linha lida da foto, já normalizada pelo servidor; `valid=false` traz o motivo em `error`. */
+export type ExtractedLine = {
+  pile_code: string;
+  diameter_cm: number | null;
+  depth_m: string | null;
+  valid: boolean;
+  error: string | null;
+};
+
+export type Extraction = { lines: ExtractedLine[]; warnings: string[] };
+
+export type PhotoUpload = {
+  photo_id: string;
+  extraction: Extraction | null;
+  extraction_error: string | null;
+};
+
 export const MIN_DIAMETER_CM = 25;
 
 /** Mesma chave do backend: só letras e dígitos, maiúsculos ("E-12" == "e 12"). */
@@ -87,6 +104,7 @@ export function sameContent(payload: MeasurementIn, out: MeasurementOut): boolea
   return (
     payload.rig_id === out.rig.id &&
     payload.work_date === out.work_date &&
+    (payload.photo_id ?? null) === (out.photo_id ?? null) &&
     (payload.notes?.trim() || null) === (out.notes?.trim() || null) &&
     payload.lines.length === out.lines.length &&
     linesSig(payload.lines) === linesSig(out.lines)

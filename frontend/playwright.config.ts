@@ -38,6 +38,10 @@ export default defineConfig({
         JWT_SECRET: "e2e-secret-e2e-secret-e2e-secret-123",
         COOKIE_SECURE: "false",
         ENVIRONMENT: "test",
+        // Leitura de fotos determinística (sem Gemini) e uploads fora do repositório versionado.
+        NOTES_EXTRACTOR: "fake",
+        STORAGE_BACKEND: "local",
+        STORAGE_LOCAL_DIR: process.env.STORAGE_LOCAL_DIR ?? "var/e2e-uploads",
       },
     },
     {

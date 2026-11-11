@@ -33,6 +33,14 @@ describe("LinesEditor", () => {
     expect(row(1).queryByText("Estaca repetida")).toBeNull();
   });
 
+  it("linha da foto com erro fica destacada até ser editada", async () => {
+    const read = { ...line("E-3", "", "40"), photo_error: "Profundidade não reconhecida (ilegível)" };
+    render(<Harness initial={[line("E-1", "8"), read]} />);
+    expect(row(2).getByText("Profundidade não reconhecida (ilegível)")).toBeInTheDocument();
+    await userEvent.type(row(2).getByLabelText("Profundidade (m)"), "10");
+    expect(row(2).queryByText(/não reconhecida/)).toBeNull();
+  });
+
   it("acusa profundidade acima do limite da perfuratriz", async () => {
     render(<Harness initial={[line("E-1")]} />);
     await userEvent.type(row(1).getByLabelText("Profundidade (m)"), "23");

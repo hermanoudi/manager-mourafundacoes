@@ -60,3 +60,9 @@ jobs:
       # Só desktop no CI (rápido). Galaxy S23 e iPhone 14 Pro: rodar localmente com `npx playwright test`.
       - run: npx playwright test --project=desktop
         working-directory: frontend
+        # Extrator fake (determinístico, sem Gemini) e fotos no diretório temporário do runner.
+        # `runner.temp` só existe no nível do step, não no `env` do job.
+        env:
+          NOTES_EXTRACTOR: fake
+          STORAGE_BACKEND: local
+          STORAGE_LOCAL_DIR: ${{ runner.temp }}/uploads

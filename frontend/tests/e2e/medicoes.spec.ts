@@ -1,28 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import {
-  allocateJob, countMeasurements, createCustomer, createJob, createRig, createUser, firstMeasurement,
-  loginWith,
-  setJobPrices, startJob, uniqueName,
+  countMeasurements, createUser, firstMeasurement, jobInProgress, loginWith, noHorizontalScroll,
+  uniqueName,
 } from "./helpers";
-
-async function noHorizontalScroll(page: Page) {
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-    .toBe(true);
-}
-
-/** Obra em execução com tabela própria (30 e 40 cm), uma perfuratriz de 20 m e um operador alocado. */
-async function jobInProgress() {
-  const customer = await createCustomer();
-  const rig = await createRig();
-  const op = await createUser("operator", uniqueName("Operador"));
-  const job = await createJob(customer.id);
-  await setJobPrices(job.id, [30, 40]);
-  await allocateJob(job.id, [rig.id], [op.id]);
-  await startJob(job.id);
-  return { job, rig, op };
-}
 
 const line = (page: Page, n: number) => page.getByRole("group", { name: `Linha ${n}` });
 

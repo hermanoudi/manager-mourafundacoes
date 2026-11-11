@@ -66,6 +66,12 @@ describe("sameContent", () => {
     expect(sameContent(payload({ notes: "x" }), out())).toBe(false);
   });
 
+  it("acusa foto diferente (foto anexada depois de um envio sem resposta)", () => {
+    const photo = "0b6c1f1e-6f2a-4d8e-9a51-2f4c6a1b7e90";
+    expect(sameContent(payload({ photo_id: photo }), out())).toBe(false);
+    expect(sameContent(payload({ photo_id: photo }), out({ photo_id: photo }))).toBe(true);
+  });
+
   it("linha incompleta do rascunho nunca é igual", () => {
     const base = payload().lines;
     expect(sameContent(payload({ lines: [{ ...base[0], diameter_cm: null }, base[1]] }), out())).toBe(false);

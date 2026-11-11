@@ -124,6 +124,24 @@ export async function startJob(jobId: number) {
   await api.dispose();
 }
 
+/** Obra em execução com tabela própria (30 e 40 cm), uma perfuratriz de 20 m e um operador alocado. */
+export async function jobInProgress() {
+  const customer = await createCustomer();
+  const rig = await createRig();
+  const op = await createUser("operator", uniqueName("Operador"));
+  const job = await createJob(customer.id);
+  await setJobPrices(job.id, [30, 40]);
+  await allocateJob(job.id, [rig.id], [op.id]);
+  await startJob(job.id);
+  return { job, rig, op };
+}
+
+export async function noHorizontalScroll(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+}
+
 export async function countMeasurements(jobId: number): Promise<number> {
   const api = await adminApi();
   const res = await api.get(`/api/measurements?job_id=${jobId}`);
@@ -140,7 +158,9 @@ export async function firstMeasurement(jobId: number) {
   const { items } = (await list.json()) as { items: { id: number }[] };
   const res = await api.get(`/api/measurements/${items[0].id}`);
   expect(res.ok()).toBeTruthy();
-  const m = (await res.json()) as { id: number; status: string; lines: { depth_m: string }[] };
+  const m = (await res.json()) as {
+    id: number; status: string; photo_id: string | null; lines: { pile_code: string; depth_m: string }[];
+  };
   await api.dispose();
   return m;
 }

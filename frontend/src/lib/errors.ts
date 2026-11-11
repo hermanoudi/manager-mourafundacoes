@@ -35,6 +35,11 @@ export function messageFor(err: unknown): string {
   return "Erro inesperado. Tente novamente.";
 }
 
+/** Mensagem para um código que veio no corpo de uma resposta de sucesso (ex.: `extraction_error`). */
+export function messageForCode(code: string): string {
+  return MESSAGES[code] ?? "Erro inesperado. Tente novamente.";
+}
+
 export function isForbidden(err: unknown): boolean {
   return err instanceof ApiError && err.status === 403;
 }

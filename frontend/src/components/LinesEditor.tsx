@@ -6,13 +6,23 @@ import {
   MIN_DIAMETER_CM, formatHundredths, nextPileCode, pileKey, pilesLabel, toHundredths,
 } from "@/lib/measurements";
 
-/** Linha em edição: tudo string pt-BR; `custom` = diâmetro "Outro" (fora da lista contratada). */
-export type LineInput = { pile_code: string; diameter_cm: string; depth_m: string; custom?: boolean };
+/**
+ * Linha em edição: tudo string pt-BR; `custom` = diâmetro "Outro" (fora da lista contratada);
+ * `photo_error` = linha lida da foto que o servidor não entendeu — vale até o operador mexer nela.
+ */
+export type LineInput = {
+  pile_code: string;
+  diameter_cm: string;
+  depth_m: string;
+  custom?: boolean;
+  photo_error?: string;
+};
 export type RigLimits = { max_diameter_cm: number; max_depth_m: string };
 
 const OTHER = "other";
 
 function lineError(line: LineInput, index: number, lines: LineInput[], rig: RigLimits | null) {
+  if (line.photo_error) return line.photo_error;
   const key = pileKey(line.pile_code);
   if (key && lines.slice(0, index).some((l) => pileKey(l.pile_code) === key)) return "Estaca repetida";
   if (line.diameter_cm !== "") {
@@ -70,8 +80,9 @@ type Props = {
 export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
   const { errors } = validateLines(lines, rig);
   const sum = totals(lines);
+  // Editar a linha conta como revisão: some o erro da leitura e valem as validações normais.
   const set = (i: number, patch: Partial<LineInput>) =>
-    onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+    onChange(lines.map((l, j) => (j === i ? { ...l, ...patch, photo_error: undefined } : l)));
 
   function add() {
     const last = lines.at(-1);
@@ -97,7 +108,9 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
               <div
                 role="group"
                 aria-label={`Linha ${n}`}
-                className={`rounded-lg bg-white p-3 shadow-sm ${errors[i] ? "ring-2 ring-red-300" : ""}`}
+                className={`rounded-lg p-3 shadow-sm ${
+                  line.photo_error ? "bg-red-50 ring-2 ring-red-500" : errors[i] ? "bg-white ring-2 ring-red-300" : "bg-white"
+                }`}
               >
                 <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
                   <div className="col-span-2 md:col-span-1">
