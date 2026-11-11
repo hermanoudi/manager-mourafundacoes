@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     notes_extractor: Literal["gemini", "fake"] = "gemini"
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
-    extraction_timeout_s: int = 30
+    # abaixo dos 30 s do rewrite do Next: a IA desiste antes e o cliente ainda recebe o photo_id
+    extraction_timeout_s: int = 20
     # fotos
     storage_backend: Literal["local", "s3"] = "local"
     storage_local_dir: str = "var/uploads"

@@ -46,6 +46,12 @@ def test_p1_settings_valid_without_new_variables():
     assert s.max_upload_mb == 8
 
 
+def test_extraction_timeout_below_rewrite_proxy_timeout():
+    # O rewrite do Next corta em 30 s: a IA precisa desistir antes, para o cliente receber photo_id.
+    s = Settings(database_url="postgresql://u:p@h/d", jwt_secret=SecretStr("x" * 32))
+    assert s.extraction_timeout_s == 20
+
+
 def test_prod_with_s3_is_valid():
     s = Settings(
         database_url="postgresql://u:p@h/d", jwt_secret=SecretStr("x" * 32),
