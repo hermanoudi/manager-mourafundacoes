@@ -51,3 +51,14 @@ async def test_operator_forbidden_403(login_as):
     c = await login_as("operator")
     resp = await c.put("/api/price-table", json=PUT_BODY)
     assert resp.status_code == 403
+
+
+async def test_operator_cannot_read_prices_403(login_as):
+    c = await login_as("operator")
+    resp = await c.get("/api/price-table")
+    assert resp.status_code == 403
+
+
+async def test_admin_reads_prices(login_as):
+    c = await login_as("admin")
+    assert (await c.get("/api/price-table")).status_code == 200

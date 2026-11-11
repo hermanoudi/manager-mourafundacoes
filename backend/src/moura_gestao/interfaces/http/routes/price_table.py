@@ -5,7 +5,7 @@ from moura_gestao.application import pricing as uc
 from moura_gestao.domain.pricing import PriceItem, PriceTable
 from moura_gestao.domain.users import Role
 from moura_gestao.infrastructure.repositories import SqlPriceTableRepository
-from moura_gestao.interfaces.http.deps import current_user, get_session, require_roles
+from moura_gestao.interfaces.http.deps import get_session, require_roles
 from moura_gestao.interfaces.http.schemas import PriceItemIO, PriceTableIO
 
 router = APIRouter(prefix="/api/price-table", tags=["price-table"])
@@ -24,7 +24,10 @@ def _out(t: PriceTable) -> PriceTableIO:
     )
 
 
-@router.get("", response_model=PriceTableIO, dependencies=[Depends(current_user)])
+@router.get(
+    "", response_model=PriceTableIO,
+    dependencies=[Depends(require_roles(Role.ADMIN, Role.OFFICE))],
+)
 async def get_price_table(repo=Depends(get_repo)):
     return _out(await uc.get_price_table(repo))
 
