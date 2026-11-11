@@ -1,0 +1,152 @@
+import { expect, test, type Page } from "@playwright/test";
+
+import {
+  allocateJob, countMeasurements, createCustomer, createJob, createRig, createUser, loginWith,
+  setJobPrices, startJob, uniqueName,
+} from "./helpers";
+
+async function noHorizontalScroll(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
+}
+
+/** Obra em execução com tabela própria (30 e 40 cm), uma perfuratriz de 20 m e um operador alocado. */
+async function jobInProgress() {
+  const customer = await createCustomer();
+  const rig = await createRig();
+  const op = await createUser("operator", uniqueName("Operador"));
+  const job = await createJob(customer.id);
+  await setJobPrices(job.id, [30, 40]);
+  await allocateJob(job.id, [rig.id], [op.id]);
+  await startJob(job.id);
+  return { job, rig, op };
+}
+
+const line = (page: Page, n: number) => page.getByRole("group", { name: `Linha ${n}` });
+
+/** Abre o lançamento pela tela da obra e preenche duas estacas: 8,5 m e 12 m. */
+async function fillTwoPiles(page: Page, jobId: number) {
+  await page.goto(`/obras/${jobId}`);
+  await page.getByRole("link", { name: "Lançar medição" }).click();
+  await expect(page).toHaveURL(new RegExp(`/obras/${jobId}/medicoes/nova`));
+  await line(page, 1).getByLabel("Estaca").fill("E-1");
+  await line(page, 1).getByLabel("Profundidade (m)").fill("8,5");
+  await page.getByRole("button", { name: "Adicionar estaca" }).click();
+  await expect(line(page, 2).getByLabel("Estaca")).toHaveValue("E-2");
+  await line(page, 2).getByLabel("Profundidade (m)").fill("12");
+  await expect(page.getByText("Total: 2 estacas · 20,50 m")).toBeVisible();
+}
+
+async function expectSubmitted(page: Page, total: string) {
+  await expect(page).toHaveURL(/\/medicoes\/\d+$/);
+  await expect(page.getByTestId("measurement-status")).toHaveText("Enviada");
+  await expect(page.getByTestId("measurement-total")).toContainText(total);
+}
+
+test("operador lança duas estacas e envia", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  await loginWith(page, op);
+  await fillTwoPiles(page, job.id);
+  await noHorizontalScroll(page);
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "20,50 m");
+  await expect(page.getByRole("cell", { name: "E-2", exact: true })).toBeVisible();
+  await noHorizontalScroll(page);
+  expect(await countMeasurements(job.id)).toBe(1);
+});
+
+test("sem conexão: rascunho fica no aparelho e o reenvio não duplica", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  await loginWith(page, op);
+  await fillTwoPiles(page, job.id);
+
+  await page.route("**/api/measurements", (r) => r.abort());
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("Sem conexão — a medição ficou salva neste aparelho")).toBeVisible();
+  expect(await countMeasurements(job.id)).toBe(0);
+
+  await page.reload();
+  await page.goto(`/obras/${job.id}`);
+  const drafts = page.getByRole("region", { name: "Rascunhos neste aparelho" });
+  await expect(drafts.getByRole("link")).toHaveCount(1);
+  await noHorizontalScroll(page);
+
+  await page.unroute("**/api/measurements");
+  await drafts.getByRole("link").click();
+  await expect(line(page, 2).getByLabel("Profundidade (m)")).toHaveValue("12");
+  await page.getByRole("button", { name: "Reenviar" }).click();
+  await expectSubmitted(page, "20,50 m");
+  expect(await countMeasurements(job.id)).toBe(1);
+
+  await page.goto(`/obras/${job.id}`);
+  await expect(page.getByRole("region", { name: "Rascunhos neste aparelho" })).toHaveCount(0);
+});
+
+test("resposta perdida: o reenvio devolve a mesma medição", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  await loginWith(page, op);
+  await fillTwoPiles(page, job.id);
+
+  await page.route("**/api/measurements", async (route) => {
+    await route.fetch();
+    await route.abort();
+  });
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("Sem conexão — a medição ficou salva neste aparelho")).toBeVisible();
+  expect(await countMeasurements(job.id)).toBe(1);
+
+  await page.unroute("**/api/measurements");
+  await page.getByRole("button", { name: "Reenviar" }).click();
+  await expectSubmitted(page, "20,50 m");
+  expect(await countMeasurements(job.id)).toBe(1);
+});
+
+test("office rejeita com motivo, operador corrige e reenvia, office aprova", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  const office = await createUser("office", uniqueName("Escritório"));
+  await loginWith(page, op);
+  await fillTwoPiles(page, job.id);
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "20,50 m");
+  const detailUrl = page.url();
+
+  await page.goto("/medicoes");
+  await expect(page.getByLabel("Status")).toHaveValue("");
+
+  await loginWith(page, office);
+  await page.goto("/medicoes");
+  await expect(page.getByLabel("Status")).toHaveValue("submitted");
+  await page.getByText(job.name).locator("visible=true").first().click();
+  await expect(page).toHaveURL(detailUrl);
+  await page.getByRole("button", { name: "Rejeitar" }).click();
+  await page.getByRole("button", { name: "Confirmar rejeição" }).click();
+  await expect(page.getByText("Informe o motivo da rejeição")).toBeVisible();
+  await page.getByLabel("Motivo da rejeição").fill("Profundidade da E-2 errada");
+  await page.getByRole("button", { name: "Confirmar rejeição" }).click();
+  await expect(page.getByTestId("measurement-status")).toHaveText("Rejeitada");
+
+  await loginWith(page, op);
+  await page.goto(detailUrl);
+  await expect(page.getByText("Profundidade da E-2 errada")).toBeVisible();
+  await noHorizontalScroll(page);
+  await page.getByRole("link", { name: "Editar" }).click();
+  await expect(line(page, 2).getByLabel("Profundidade (m)")).toHaveValue("12,00");
+  await line(page, 2).getByLabel("Profundidade (m)").fill("13");
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "21,50 m");
+  await expect(page).toHaveURL(detailUrl);
+  expect(await countMeasurements(job.id)).toBe(1);
+
+  await loginWith(page, office);
+  await page.goto(detailUrl);
+  await page.getByRole("button", { name: "Aprovar" }).click();
+  await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
+  await expect(page.getByRole("button", { name: "Rejeitar" })).toHaveCount(0);
+
+  await loginWith(page, op);
+  await page.goto(detailUrl);
+  await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
+  await expect(page.getByRole("link", { name: "Editar" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reenviar" })).toHaveCount(0);
+});

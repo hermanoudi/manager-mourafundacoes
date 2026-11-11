@@ -102,6 +102,37 @@ export async function allocateJob(jobId: number, rigIds: number[], operatorIds: 
   await api.dispose();
 }
 
+/** Tabela própria da obra (a global é alterada por outros testes). */
+export async function setJobPrices(jobId: number, diameters: number[]) {
+  const api = await adminApi();
+  const res = await api.put(`/api/jobs/${jobId}/prices`, {
+    data: {
+      mobilization_fee: "500.00",
+      minimum_amount: null,
+      max_tabled_depth_m: "20",
+      items: diameters.map((d) => ({ diameter_cm: d, price_per_m: "10.00" })),
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  await api.dispose();
+}
+
+export async function startJob(jobId: number) {
+  const api = await adminApi();
+  const res = await api.patch(`/api/jobs/${jobId}`, { data: { status: "in_progress" } });
+  expect(res.ok()).toBeTruthy();
+  await api.dispose();
+}
+
+export async function countMeasurements(jobId: number): Promise<number> {
+  const api = await adminApi();
+  const res = await api.get(`/api/measurements?job_id=${jobId}`);
+  expect(res.ok()).toBeTruthy();
+  const { total } = (await res.json()) as { total: number };
+  await api.dispose();
+  return total;
+}
+
 export const CEP_BODY = {
   cep: "38400-000",
   logradouro: "Avenida Rondon Pacheco",

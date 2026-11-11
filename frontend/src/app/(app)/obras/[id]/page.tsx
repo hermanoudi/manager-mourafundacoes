@@ -11,7 +11,10 @@ import { PriceTableEditor, type PriceTableOut } from "@/components/PriceTableEdi
 import { StatusBadge, type JobStatus } from "@/components/StatusBadge";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
+import { formatDateBR, formatDateTimeBR } from "@/lib/dates";
+import { listDrafts } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
+import { pilesLabel } from "@/lib/measurements";
 
 const ACTIONS: Record<JobStatus, { label: string; to: JobStatus; danger?: boolean }[]> = {
   planned: [
@@ -26,7 +29,34 @@ const ACTIONS: Record<JobStatus, { label: string; to: JobStatus; danger?: boolea
   cancelled: [],
 };
 
-const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
+/** Rascunhos de medição guardados neste aparelho (localStorage) para a obra. */
+function LocalDrafts({ jobId }: { jobId: number }) {
+  const drafts = listDrafts(jobId);
+  if (drafts.length === 0) return null;
+  return (
+    <section aria-labelledby="local-drafts" className="space-y-2">
+      <h2 id="local-drafts" className="text-lg font-medium">Rascunhos neste aparelho</h2>
+      <ul className="space-y-2">
+        {drafts.map((d) => (
+          <li key={d.client_key}>
+            <Link
+              href={`/obras/${jobId}/medicoes/nova?rascunho=${d.client_key}`}
+              className="block min-h-11 rounded-lg bg-white p-3 text-sm shadow-sm"
+            >
+              <span className="font-medium">
+                {formatDateBR(d.work_date)} · {pilesLabel(d.lines.length)}
+              </span>
+              <span className="block text-stone-500">
+                {d.submit ? "Envio pendente · " : ""}salvo em {formatDateTimeBR(d.saved_at)}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export default function ObraPage() {
   const { id } = useParams<{ id: string }>();
@@ -95,6 +125,8 @@ export default function ObraPage() {
         </div>
       ) : null}
 
+      <LocalDrafts jobId={job.id} />
+
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Dados</h2>
         {canWrite ? (
@@ -109,9 +141,9 @@ export default function ObraPage() {
               {job.address.city}/{job.address.state}
             </dd>
             <dt className="text-stone-500">Início</dt>
-            <dd>{fmtDate(job.start_date)}</dd>
+            <dd>{formatDateBR(job.start_date)}</dd>
             <dt className="text-stone-500">Término</dt>
-            <dd>{fmtDate(job.end_date)}</dd>
+            <dd>{formatDateBR(job.end_date)}</dd>
             {job.notes && (
               <>
                 <dt className="text-stone-500">Observações</dt>
