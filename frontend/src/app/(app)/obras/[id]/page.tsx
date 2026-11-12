@@ -90,19 +90,19 @@ export default function ObraPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="min-w-0 max-w-2xl space-y-8">
+      <div className="space-y-1.5">
         <h1 className="min-w-0 break-words text-xl font-semibold">{job.name}</h1>
         <StatusBadge kind="job" status={job.status} />
       </div>
 
       {(canWrite && ACTIONS[job.status].length > 0) || job.status === "in_progress" ? (
         <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {job.status === "in_progress" && (
               <Link
                 href={`/obras/${job.id}/medicoes/nova`}
-                className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark"
+                className="col-span-2 inline-flex min-h-12 items-center justify-center rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark sm:min-h-11"
               >
                 Lançar medição
               </Link>
@@ -114,7 +114,7 @@ export default function ObraPage() {
                   type="button"
                   onClick={() => changeStatus(a.to, a.label)}
                   className={`min-h-11 rounded-lg border px-4 font-medium ${
-                    a.danger ? "border-red-300 text-red-700" : "border-brand text-brand"
+                    a.danger ? "border-red-300 text-red-700 sm:ml-auto" : "border-brand text-brand"
                   }`}
                 >
                   {a.label}

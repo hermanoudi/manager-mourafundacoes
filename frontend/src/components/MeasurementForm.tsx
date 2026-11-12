@@ -233,7 +233,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
 
   return (
     <form
-      className="max-w-3xl space-y-4"
+      className="max-w-3xl space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
         void send(true);
@@ -334,7 +334,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
       >
         {error && <Notice tone="error" role="alert">{error}</Notice>}
         {reading && <p className="text-sm text-stone-700">Aguarde a leitura da foto para enviar</p>}
-        <p data-numeric className="text-sm font-medium text-stone-900">
+        <p data-numeric className="text-sm font-medium text-stone-900 md:hidden">
           {`${pilesLabel(sum.piles)} · ${formatHundredths(sum.h)} m`}
         </p>
         <div className="flex gap-2">

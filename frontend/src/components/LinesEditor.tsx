@@ -133,7 +133,7 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                   line.photo_error ? "bg-red-50 ring-2 ring-red-500" : errors[i] ? "bg-white ring-2 ring-red-300" : "bg-white"
                 }`}
               >
-                <div className="mb-1 flex items-center justify-between gap-2">
+                <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-stone-700">Linha {n}</span>
                   {lines.length > 1 && (
                     <button

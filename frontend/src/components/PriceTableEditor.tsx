@@ -44,7 +44,7 @@ function toPayload(v: Values): PriceTableOut {
 /** Resumo somente leitura da tabela. */
 export function PriceTableView({ table }: { table: PriceTableOut }) {
   return (
-    <div className="max-w-xl space-y-3 rounded-lg bg-white p-3 text-sm shadow-sm">
+    <div className="max-w-2xl space-y-3 rounded-lg bg-white p-3 text-sm shadow-sm">
       <dl className="grid grid-cols-2 gap-2">
         <dt className="text-stone-600">Mobilização</dt>
         <dd>{formatMoneyBR(table.mobilization_fee)}</dd>
@@ -117,7 +117,7 @@ function PriceTableForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="max-w-xl space-y-4" noValidate>
+    <form onSubmit={handleSubmit(submit)} className="max-w-2xl space-y-4" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Taxa de mobilização (R$)" error={errors.mobilization_fee?.message}>
           <Controller

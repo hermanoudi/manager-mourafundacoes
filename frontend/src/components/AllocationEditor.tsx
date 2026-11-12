@@ -54,7 +54,7 @@ export function AllocationEditor({
 
   if (!canEdit) {
     return (
-      <dl className="grid max-w-xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
+      <dl className="grid max-w-2xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
         <dt className="text-stone-600">Perfuratrizes</dt>
         <dd>{job.rigs.map((r) => r.name).join(", ") || "—"}</dd>
         <dt className="text-stone-600">Operadores</dt>
@@ -90,7 +90,7 @@ export function AllocationEditor({
   }
 
   return (
-    <div className="max-w-xl space-y-4 rounded-lg bg-white p-3 shadow-sm">
+    <div className="max-w-2xl space-y-4 rounded-lg bg-white p-3 shadow-sm">
       <Checks legend="Perfuratrizes" options={rigOptions} selected={rigIds} onToggle={toggle(setRigIds)} />
       <Checks legend="Operadores" options={operators ?? []} selected={opIds} onToggle={toggle(setOpIds)} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
