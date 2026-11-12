@@ -12,3 +12,6 @@ playwright-report/
 .ruff_cache/
 .playwright-cli/
 backend/var/
+
+# Impeccable (snapshots locais de crítica)
+.impeccable/

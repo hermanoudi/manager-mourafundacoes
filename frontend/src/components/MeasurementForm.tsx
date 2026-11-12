@@ -107,7 +107,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const qc = useQueryClient();
   const { data: me } = useMe();
   // Medição lançada pelo admin já nasce aprovada (regra do servidor); o botão avisa.
-  const sendLabel = me?.role === "admin" ? "Lançar (já aprovada)" : "Enviar";
+  const sendLabel = me?.role === "admin" ? "Lançar e aprovar" : "Enviar";
   const [local] = useState(() => loadDraft(clientKey));
   const [values, setValues] = useState<Values>(() => fromSource(local ?? server, job));
   const [retry, setRetry] = useState<Retry | null>(() =>

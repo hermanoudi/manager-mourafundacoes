@@ -43,7 +43,7 @@ test("admin lança duas estacas e a medição já nasce aprovada", async ({ page
   await loginAs(page, "admin");
   await fillTwoPiles(page, job.id);
   await expect(page.getByRole("button", { name: "Enviar", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Lançar (já aprovada)" }).click();
+  await page.getByRole("button", { name: "Lançar e aprovar" }).click();
   await expect(page).toHaveURL(/\/medicoes\/\d+$/);
   await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
   await expect(page.getByTestId("measurement-total")).toContainText("20,50 m");
