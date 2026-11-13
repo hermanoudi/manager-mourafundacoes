@@ -89,8 +89,8 @@ async def _approve(
 async def _auto_approve(
     measurements: MeasurementRepository, user: User, now: datetime, m: Measurement
 ) -> Measurement:
-    """Medição que o próprio admin lança já nasce aprovada (ele é quem aprovaria)."""
-    if user.role == Role.ADMIN and m.created_by == user.id and m.status == MeasurementStatus.SUBMITTED:
+    """Medição enviada pelo admin já sai aprovada, de qualquer autor (ele é quem aprovaria)."""
+    if user.role == Role.ADMIN and m.status == MeasurementStatus.SUBMITTED:
         return await _approve(measurements, user, now, m)
     return m
 

@@ -184,7 +184,7 @@ test("office rejeita com motivo, operador corrige e reenvia, office aprova", asy
   await expect(page.getByRole("button", { name: "Reenviar" })).toHaveCount(0);
 });
 
-test("admin corrige, reenvia e exclui a medição de um operador", async ({ page }) => {
+test("admin corrige e aprova, e exclui a medição de um operador", async ({ page }) => {
   const { job, op } = await jobInProgress();
   await loginWith(page, op);
   await fillTwoPiles(page, job.id);
@@ -202,17 +202,30 @@ test("admin corrige, reenvia e exclui a medição de um operador", async ({ page
   await loginAs(page, "admin");
   await page.goto(detailUrl);
   await reject();
-  await expect(page.getByRole("button", { name: "Reenviar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lançar e aprovar" })).toBeVisible();
   await page.getByRole("link", { name: "Editar" }).click();
   await line(page, 2).getByLabel("Profundidade (m)").fill("13");
-  // Medição de outro autor não nasce aprovada: volta para a fila.
-  await page.getByRole("button", { name: "Enviar", exact: true }).click();
-  await expectSubmitted(page, "21,50 m");
-  expect(page.url()).toBe(detailUrl);
+  // Enviada pelo admin, a medição do operador já sai aprovada.
+  await page.getByRole("button", { name: "Lançar e aprovar" }).click();
+  await expect(page).toHaveURL(detailUrl);
+  await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
+  await expect(page.getByTestId("measurement-total")).toContainText("21,50 m");
+  await expect(page.getByRole("link", { name: "Editar" })).toHaveCount(0);
 
+  // Outra medição, rejeitada, para excluir.
+  await loginWith(page, op);
+  await page.goto(`/obras/${job.id}`);
+  await page.getByRole("link", { name: "Lançar medição" }).click();
+  await line(page, 1).getByLabel("Estaca").fill("E-9");
+  await line(page, 1).getByLabel("Profundidade (m)").fill("7");
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "7,00 m");
+  const secondUrl = page.url();
+  await loginAs(page, "admin");
+  await page.goto(secondUrl);
   await reject();
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("button", { name: "Excluir" }).click();
   await expect(page).toHaveURL(new RegExp(`/obras/${job.id}\\?aba=medicoes`));
-  expect(await countMeasurements(job.id)).toBe(0);
+  expect(await countMeasurements(job.id)).toBe(1);
 });

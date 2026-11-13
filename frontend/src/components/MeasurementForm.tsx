@@ -106,10 +106,8 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const { data: me } = useMe();
-  // Medição lançada pelo admin já nasce aprovada (regra do servidor); o botão avisa. Quando o
-  // admin corrige a medição de outro autor, ela volta para a fila de aprovação.
-  const ownByAdmin = me?.role === "admin" && (!server || server.created_by.id === me.id);
-  const sendLabel = ownByAdmin ? "Lançar e aprovar" : "Enviar";
+  // Medição enviada pelo admin já sai aprovada, de qualquer autor (regra do servidor); o botão avisa.
+  const sendLabel = me?.role === "admin" ? "Lançar e aprovar" : "Enviar";
   const [local] = useState(() => loadDraft(clientKey));
   const [values, setValues] = useState<Values>(() => fromSource(local ?? server, job));
   const [retry, setRetry] = useState<Retry | null>(() =>

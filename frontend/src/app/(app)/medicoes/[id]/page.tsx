@@ -84,8 +84,8 @@ export default function MedicaoPage() {
   const isAuthor = me?.id === m.created_by.id;
   // O admin corrige, envia e exclui a medição de qualquer autor.
   const canEdit = (isAuthor || isAdmin) && (m.status === "draft" || m.status === "rejected");
-  // Só a medição do próprio admin nasce aprovada ao enviar; a de outro autor vai para a fila.
-  const sendLabel = isAdmin && isAuthor ? "Lançar e aprovar" : m.status === "rejected" ? "Reenviar" : "Enviar";
+  // Enviada pelo admin, a medição já sai aprovada (de qualquer autor).
+  const sendLabel = isAdmin ? "Lançar e aprovar" : m.status === "rejected" ? "Reenviar" : "Enviar";
   const uncontracted = new Set(m.uncontracted_diameters);
 
   async function act(path: string, body?: unknown) {

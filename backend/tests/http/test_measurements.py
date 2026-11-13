@@ -424,13 +424,14 @@ async def test_office_submit_still_waits_for_review(ctx):
     assert m["reviewed_by"] is None
 
 
-async def test_admin_submitting_operators_draft_does_not_approve_it(ctx, login_user):
-    admin, _ = await login_user("admin@moura.test", "admin")
+async def test_admin_submitting_operators_draft_approves_it(ctx, login_user):
+    admin, admin_id = await login_user("admin@moura.test", "admin")
     draft = await create(ctx.op_a, body(ctx, [line("E-1")]))
     resp = await admin.post(f"/api/measurements/{draft['id']}/submit")
     assert resp.status_code == 200, resp.text
-    assert resp.json()["status"] == "submitted"
-    assert resp.json()["reviewed_by"] is None
+    assert resp.json()["status"] == "approved"
+    assert resp.json()["reviewed_by"]["id"] == admin_id
+    assert resp.json()["created_by"]["id"] == draft["created_by"]["id"]
 
 
 async def test_admin_edits_operators_rejected_measurement_via_upsert(ctx, login_user):
@@ -443,7 +444,8 @@ async def test_admin_edits_operators_rejected_measurement_via_upsert(ctx, login_
     assert fixed["id"] == m["id"]
     assert fixed["created_by"]["id"] == m["created_by"]["id"]
     assert fixed["lines"][0]["depth_m"] == "9.00"
-    assert fixed["status"] == "submitted"
+    assert fixed["status"] == "approved"
+    assert fixed["rejection_reason"] is None
 
 
 async def test_office_cannot_upsert_operators_measurement(ctx):
