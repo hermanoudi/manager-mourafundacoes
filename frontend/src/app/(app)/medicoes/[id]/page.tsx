@@ -170,6 +170,8 @@ export default function MedicaoPage() {
     ["Data do serviço", formatDateBR(m.work_date)],
     ["Lançada por", m.created_by.name],
   ];
+  // Admin lançou no nome do operador: fica registrado quem digitou.
+  if (m.entered_by.id !== m.created_by.id) facts.push(["Digitada por", m.entered_by.name]);
   if (m.submitted_at) facts.push(["Enviada em", formatDateTimeBR(m.submitted_at)]);
   if (m.reviewed_by) facts.push(["Revisada por", `${m.reviewed_by.name} em ${formatDateTimeBR(m.reviewed_at)}`]);
   if (m.notes) facts.push(["Observações", m.notes]);

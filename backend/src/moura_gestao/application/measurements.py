@@ -152,15 +152,29 @@ async def list_measurements_for(
     return await measurements.list(params, job_id, status, operator_id)
 
 
+async def _check_operator(
+    jobs: JobRepository, user: User, job_id: int, operator_id: int | None,
+    current: int | None,
+) -> None:
+    """Só o admin lança no nome de outro; o operador escolhido precisa estar alocado na obra."""
+    if operator_id is None or operator_id == user.id:
+        return
+    if user.role != Role.ADMIN:
+        raise _forbidden()
+    if operator_id != current and not await jobs.is_operator_allocated(job_id, operator_id):
+        raise Conflict("operator_not_allocated", "O operador não está alocado nesta obra")
+
+
 async def save_measurement(
     measurements: MeasurementRepository, jobs: JobRepository, photos: PhotoRepository,
     user: User, now: datetime, *,
     client_key: uuid.UUID, job_id: int, rig_id: int, work_date: date,
     lines: list[MeasurementLine], notes: str | None = None, photo_id: uuid.UUID | None = None,
-    submit: bool = False,
+    submit: bool = False, operator_id: int | None = None,
 ) -> tuple[Measurement, bool]:
     """Cria a medição ou, se o client_key já existe, aplica o replay/upsert.
 
+    `operator_id`: o admin lança (ou corrige) no nome do operador, que passa a ser o autor.
     Devolve (medição, criada?).
     """
     if photo_id is not None:
@@ -175,8 +189,10 @@ async def save_measurement(
     await measurements.lock_job(job_id)
     existing = await measurements.get_by_client_key(client_key)
     if existing is None:
+        await _check_operator(jobs, user, job_id, operator_id, None)
         new = Measurement(
-            id=None, client_key=client_key, job_id=job_id, created_by=user.id, **payload
+            id=None, client_key=client_key, job_id=job_id,
+            created_by=operator_id or user.id, entered_by=user.id, **payload,
         )
         await _validate(measurements, jobs, user, now, new)
         if submit:
@@ -191,12 +207,15 @@ async def save_measurement(
                 raise
         else:
             return await _auto_approve(measurements, user, now, saved), True
-    return await _replay(measurements, jobs, user, now, existing, job_id, payload, submit), False
+    return await _replay(
+        measurements, jobs, user, now, existing, job_id, payload, submit, operator_id
+    ), False
 
 
 async def _replay(
     measurements: MeasurementRepository, jobs: JobRepository, user: User, now: datetime,
     existing: Measurement, job_id: int, payload: dict[str, Any], submit: bool,
+    operator_id: int | None,
 ) -> Measurement:
     # O admin pode corrigir a medição de qualquer autor; os demais, só as próprias.
     owner = existing.created_by == user.id or user.role == Role.ADMIN
@@ -204,6 +223,9 @@ async def _replay(
         raise Conflict("duplicate_client_key", "Este identificador já pertence a outra medição")
     if existing.status not in EDITABLE_STATUSES:
         return existing
+    await _check_operator(jobs, user, job_id, operator_id, existing.created_by)
+    if operator_id is not None:
+        payload = {**payload, "created_by": operator_id}
     return await _edit(measurements, jobs, user, now, existing, payload, submit)
 
 

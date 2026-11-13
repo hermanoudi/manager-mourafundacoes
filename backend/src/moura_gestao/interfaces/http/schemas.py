@@ -347,6 +347,8 @@ class MeasurementIn(BaseModel):
     notes: str | None = None
     photo_id: UUID | None = None
     submit: bool = False
+    # Admin lança no nome do operador alocado; ausente = o próprio usuário.
+    operator_id: int | None = None
 
 
 class MeasurementPatch(BaseModel):
@@ -382,6 +384,7 @@ class MeasurementSummaryOut(BaseModel):
     totals_by_diameter: list[DiameterTotalOut]
     uncontracted_diameters: list[int]
     created_by: IdName
+    entered_by: IdName
     submitted_at: datetime | None
     reviewed_by: IdName | None
     reviewed_at: datetime | None

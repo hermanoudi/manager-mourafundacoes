@@ -41,6 +41,7 @@ const out = (over: Partial<MeasurementOut> = {}): MeasurementOut => ({
   totals_by_diameter: [],
   uncontracted_diameters: [],
   created_by: { id: 3, name: "Op" },
+  entered_by: { id: 3, name: "Op" },
   submitted_at: null,
   reviewed_by: null,
   reviewed_at: null,
@@ -77,6 +78,12 @@ describe("sameContent", () => {
     expect(sameContent(payload({ work_date: "2026-11-09" }), out())).toBe(false);
     expect(sameContent(payload({ rig_id: 9 }), out())).toBe(false);
     expect(sameContent(payload({ notes: "x" }), out())).toBe(false);
+  });
+
+  it("acusa operador trocado pelo admin; sem operador no payload (operador) não compara", () => {
+    expect(sameContent(payload({ operator_id: 4 }), out())).toBe(false);
+    expect(sameContent(payload({ operator_id: 3 }), out())).toBe(true);
+    expect(sameContent(payload(), out())).toBe(true);
   });
 
   it("acusa foto diferente (foto anexada depois de um envio sem resposta)", () => {

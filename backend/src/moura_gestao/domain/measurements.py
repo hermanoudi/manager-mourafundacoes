@@ -84,12 +84,19 @@ class Measurement:
     rejection_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Quem digitou: o admin pode lançar no nome do operador (created_by). Padrão: o próprio autor.
+    entered_by: int | None = None
     # leitura (preenchidos pelo repositório)
     job_name: str = ""
     rig_name: str = ""
     created_by_name: str = ""
+    entered_by_name: str = ""
     reviewed_by_name: str | None = None
     contracted_diameters: list[int] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.entered_by is None:
+            self.entered_by = self.created_by
 
     @property
     def total_m(self) -> Decimal:

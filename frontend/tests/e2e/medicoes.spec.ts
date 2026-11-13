@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import {
-  countMeasurements, createUser, firstMeasurement, jobInProgress, loginAs, loginWith,
+  allocateJob, countMeasurements, createUser, firstMeasurement, jobInProgress, loginAs, loginWith,
   noHorizontalScroll, uniqueName,
 } from "./helpers";
 
@@ -47,6 +47,35 @@ test("admin lança duas estacas e a medição já nasce aprovada", async ({ page
   await expect(page).toHaveURL(/\/medicoes\/\d+$/);
   await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
   await expect(page.getByTestId("measurement-total")).toContainText("20,50 m");
+  expect(await countMeasurements(job.id)).toBe(1);
+});
+
+test("admin lança no nome do operador e o rascunho passa a ser dele", async ({ page }) => {
+  const { job, rig, op } = await jobInProgress();
+  const op2 = await createUser("operator", uniqueName("Operador"));
+  await allocateJob(job.id, [rig.id], [op.id, op2.id]);
+  const admin = await loginAs(page, "admin", uniqueName("Admin"));
+  await fillTwoPiles(page, job.id);
+  await noHorizontalScroll(page);
+
+  // Com dois operadores na obra, o admin precisa escolher.
+  await page.getByRole("button", { name: "Salvar rascunho" }).click();
+  await expect(page.getByText("Selecione o operador")).toBeVisible();
+  await page.getByLabel("Operador").selectOption({ label: op2.name });
+  await page.getByRole("button", { name: "Salvar rascunho" }).click();
+  await expect(page).toHaveURL(/\/medicoes\/\d+$/);
+  const detailUrl = page.url();
+  const fact = (label: string) => page.locator("dt", { hasText: label }).locator("xpath=following-sibling::dd[1]");
+  await expect(fact("Lançada por")).toHaveText(op2.name);
+  await expect(fact("Digitada por")).toHaveText(admin.name);
+
+  // O operador vê como dele e envia.
+  await loginWith(page, op2);
+  await page.goto(detailUrl);
+  await page.getByRole("link", { name: "Editar" }).click();
+  await expect(page.getByLabel("Operador")).toHaveCount(0);
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "20,50 m");
   expect(await countMeasurements(job.id)).toBe(1);
 });
 

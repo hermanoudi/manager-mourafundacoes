@@ -204,6 +204,7 @@ class MeasurementModel(Base):
     work_date: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(12))
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    entered_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

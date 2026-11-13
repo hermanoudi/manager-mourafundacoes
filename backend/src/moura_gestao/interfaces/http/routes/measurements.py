@@ -63,6 +63,7 @@ def _summary_fields(m: Measurement) -> dict[str, Any]:
         ],
         "uncontracted_diameters": m.uncontracted_diameters,
         "created_by": IdName(id=m.created_by, name=m.created_by_name),
+        "entered_by": IdName(id=m.entered_by or m.created_by, name=m.entered_by_name),
         "submitted_at": m.submitted_at,
         "reviewed_by": (
             IdName(id=m.reviewed_by, name=m.reviewed_by_name or "")
@@ -106,7 +107,7 @@ async def create_measurement(
         r.measurements, r.jobs, r.photos, user, _now(),
         client_key=body.client_key, job_id=body.job_id, rig_id=body.rig_id,
         work_date=body.work_date, lines=_lines(body.lines), notes=body.notes,
-        photo_id=body.photo_id, submit=body.submit,
+        photo_id=body.photo_id, submit=body.submit, operator_id=body.operator_id,
     )
     if not created:
         response.status_code = 200

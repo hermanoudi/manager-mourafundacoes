@@ -463,6 +463,58 @@ async def test_admin_deletes_operators_draft(ctx, login_user):
     assert resp.status_code == 204, resp.text
 
 
+async def _operator_ids(ctx: Ctx) -> list[int]:
+    job = (await ctx.office.get(f"/api/jobs/{ctx.job_id}")).json()
+    return [o["id"] for o in job["operators"]]
+
+
+async def test_admin_launches_measurement_on_behalf_of_operator(ctx, login_user):
+    admin, admin_id = await login_user("admin@moura.test", "admin")
+    a_id, _ = await _operator_ids(ctx)
+    draft = await create(admin, body(ctx, [line("E-1")], operator_id=a_id))
+    assert draft["created_by"]["id"] == a_id
+    assert draft["entered_by"]["id"] == admin_id
+    # Passa a ser do operador: ele vê e envia como se tivesse lançado.
+    resp = await ctx.op_a.post(f"/api/measurements/{draft['id']}/submit")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "submitted"
+
+
+async def test_operator_own_measurement_entered_by_self(ctx):
+    m = await create(ctx.op_a, body(ctx, [line("E-1")]))
+    assert m["entered_by"]["id"] == m["created_by"]["id"]
+
+
+async def test_admin_cannot_launch_for_operator_not_allocated(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    b_id = (await ctx.op_b.get("/api/auth/me")).json()["id"]
+    resp = await admin.post("/api/measurements", json=body(ctx, operator_id=b_id))
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["code"] == "operator_not_allocated"
+
+
+async def test_admin_switches_operator_of_draft(ctx, login_user):
+    admin, admin_id = await login_user("admin@moura.test", "admin")
+    a_id, c_id = await _operator_ids(ctx)
+    payload = body(ctx, [line("E-1")], operator_id=a_id)
+    m = await create(admin, payload)
+    fixed = await create(admin, {**payload, "operator_id": c_id, "submit": True}, 200)
+    assert fixed["id"] == m["id"]
+    assert fixed["created_by"]["id"] == c_id
+    assert fixed["entered_by"]["id"] == admin_id
+    assert fixed["status"] == "approved"
+
+
+async def test_non_admin_cannot_launch_for_someone_else(ctx):
+    a_id, c_id = await _operator_ids(ctx)
+    resp = await ctx.op_a.post("/api/measurements", json=body(ctx, operator_id=c_id))
+    assert resp.status_code == 403, resp.text
+    resp = await ctx.office.post("/api/measurements", json=body(ctx, operator_id=a_id))
+    assert resp.status_code == 403, resp.text
+    ok = await create(ctx.op_a, body(ctx, operator_id=a_id))
+    assert ok["created_by"]["id"] == a_id
+
+
 async def test_job_with_admin_measurement_can_be_completed(ctx, login_user):
     admin, _ = await login_user("admin@moura.test", "admin")
     await create(admin, body(ctx, [line("E-1")], submit=True), 201)

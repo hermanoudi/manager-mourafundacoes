@@ -24,6 +24,8 @@ import { flashSent } from "@/lib/flash";
 import { nullIfEmpty } from "@/lib/schemas";
 
 type Values = {
+  /** Operador responsável (só o admin escolhe; o operador lança no próprio nome). */
+  operatorId: string;
   rigId: string;
   workDate: string;
   lines: LineInput[];
@@ -37,6 +39,7 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
   const diameters = job.contracted_diameters;
   if (!src) {
     return {
+      operatorId: job.operators.length === 1 ? String(job.operators[0].id) : "",
       rigId: job.rigs.length === 1 ? String(job.rigs[0].id) : "",
       workDate: todaySP(),
       lines: [{
@@ -50,7 +53,9 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
     };
   }
   const rigId = "rig" in src ? src.rig.id : src.rig_id;
+  const operatorId = "created_by" in src ? src.created_by.id : src.operator_id;
   return {
+    operatorId: operatorId == null ? "" : String(operatorId),
     rigId: rigId == null ? "" : String(rigId),
     workDate: src.work_date,
     lines: src.lines.map((l) => ({
@@ -78,8 +83,9 @@ function fromExtracted(l: ExtractedLine, diameters: number[]): LineInput {
 const isBlank = (l: LineInput) => l.pile_code.trim() === "" && l.depth_m === "";
 const hasPhotoErrors = (v: Values) => v.lines.some((l) => l.photo_error);
 
-function problem(v: Values, rig: JobOut["rigs"][number] | null): string | null {
+function problem(v: Values, rig: JobOut["rigs"][number] | null, pickOperator: boolean): string | null {
   if (hasPhotoErrors(v)) return "Corrija ou remova as linhas lidas da foto destacadas";
+  if (pickOperator && !v.operatorId) return "Selecione o operador";
   if (!rig) return "Selecione a perfuratriz";
   if (!v.workDate) return "Informe a data do serviço";
   if (v.workDate > todaySP()) return "A data não pode ser futura";
@@ -107,7 +113,8 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const qc = useQueryClient();
   const { data: me } = useMe();
   // Medição enviada pelo admin já sai aprovada, de qualquer autor (regra do servidor); o botão avisa.
-  const sendLabel = me?.role === "admin" ? "Lançar e aprovar" : "Enviar";
+  const isAdmin = me?.role === "admin";
+  const sendLabel = isAdmin ? "Lançar e aprovar" : "Enviar";
   const [local] = useState(() => loadDraft(clientKey));
   const [values, setValues] = useState<Values>(() => fromSource(local ?? server, job));
   const [retry, setRetry] = useState<Retry | null>(() =>
@@ -125,6 +132,11 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
 
   const rig = job.rigs.find((r) => String(r.id) === values.rigId) ?? null;
   const sum = totals(values.lines);
+  // Autor atual fora da equipe (desalocado, ou medição antiga do próprio admin): continua na lista.
+  const operators =
+    server && !job.operators.some((o) => o.id === server.created_by.id)
+      ? [...job.operators, server.created_by]
+      : job.operators;
 
   function toPayload(v: Values, submit: boolean): MeasurementIn {
     return {
@@ -140,6 +152,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
       notes: nullIfEmpty(v.notes),
       photo_id: v.photoId,
       submit,
+      ...(isAdmin ? { operator_id: v.operatorId ? Number(v.operatorId) : null } : {}),
     };
   }
 
@@ -191,7 +204,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
 
   async function send(submit: boolean) {
     if (submit && reading) return;
-    const msg = problem(values, rig);
+    const msg = problem(values, rig, isAdmin);
     if (msg) {
       setError(msg);
       return;
@@ -272,6 +285,22 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
       )}
 
       <div className="grid gap-3 md:grid-cols-2">
+        {isAdmin && (
+          <div className="md:col-span-2">
+            <Field label="Operador">
+              <select
+                className={inputClass}
+                value={values.operatorId}
+                onChange={(e) => change({ operatorId: e.target.value })}
+              >
+                {values.operatorId === "" && <option value="">Selecione</option>}
+                {operators.map((o) => (
+                  <option key={o.id} value={String(o.id)}>{o.name}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        )}
         <Field label="Perfuratriz">
           <select
             className={inputClass}

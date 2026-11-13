@@ -443,7 +443,8 @@ class SqlJobRepository:
 _CLIENT_KEY_UQ = "uq_measurements_client_key"
 _JOB_LOCK_NS = 7001  # namespace do pg_advisory_xact_lock(int, int) para medições por obra
 _MEASUREMENT = (
-    "client_key", "job_id", "rig_id", "work_date", "created_by", "notes", "submitted_at",
+    "client_key", "job_id", "rig_id", "work_date", "created_by", "entered_by", "notes",
+    "submitted_at",
     "reviewed_by", "reviewed_at", "rejection_reason", "photo_id",
 )
 
@@ -505,14 +506,15 @@ class SqlMeasurementRepository:
         rigs = await self._names(DrillRigModel, {r.rig_id for r in rows})
         users = await self._names(
             UserModel,
-            {r.created_by for r in rows} | {r.reviewed_by for r in rows if r.reviewed_by},
+            {r.created_by for r in rows} | {r.entered_by for r in rows}
+            | {r.reviewed_by for r in rows if r.reviewed_by},
         )
         return [
             Measurement(
                 id=r.id, status=MeasurementStatus(r.status), lines=lines[r.id],
                 created_at=r.created_at, updated_at=r.updated_at,
                 job_name=jobs[r.job_id], rig_name=rigs[r.rig_id],
-                created_by_name=users[r.created_by],
+                created_by_name=users[r.created_by], entered_by_name=users[r.entered_by],
                 reviewed_by_name=users.get(r.reviewed_by) if r.reviewed_by else None,
                 contracted_diameters=contracted[r.job_id],
                 **{k: getattr(r, k) for k in _MEASUREMENT},

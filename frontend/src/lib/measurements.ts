@@ -16,6 +16,8 @@ export type MeasurementIn = {
   notes: string | null;
   photo_id: string | null;
   submit: boolean;
+  /** Só o admin envia: lança no nome deste operador (alocado na obra). */
+  operator_id?: number | null;
 };
 
 export type DiameterTotal = { diameter_cm: number; piles: number; meters: string };
@@ -31,6 +33,8 @@ export type MeasurementSummary = {
   totals_by_diameter: DiameterTotal[];
   uncontracted_diameters: number[];
   created_by: IdName;
+  /** Quem digitou; difere de `created_by` quando o admin lançou no nome do operador. */
+  entered_by: IdName;
   submitted_at: string | null;
   reviewed_by: IdName | null;
   reviewed_at: string | null;
@@ -113,6 +117,7 @@ const linesSig = (lines: Comparable[]) => lines.map(lineSig).sort().join(";");
 export function sameContent(payload: MeasurementIn, out: MeasurementOut): boolean {
   if (payload.lines.some((l) => l.diameter_cm == null || toHundredths(l.depth_m) === null)) return false;
   return (
+    (payload.operator_id == null || payload.operator_id === out.created_by.id) &&
     payload.rig_id === out.rig.id &&
     payload.work_date === out.work_date &&
     (payload.photo_id ?? null) === (out.photo_id ?? null) &&
