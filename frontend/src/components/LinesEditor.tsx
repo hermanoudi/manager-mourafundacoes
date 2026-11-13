@@ -234,7 +234,7 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
       <button
         type="button"
         onClick={add}
-        className="min-h-12 w-full rounded-lg border border-brand px-4 font-medium text-brand md:w-auto"
+        className="min-h-12 w-full rounded-lg border border-brand px-4 btn-label text-brand md:w-auto"
       >
         Adicionar estaca
       </button>

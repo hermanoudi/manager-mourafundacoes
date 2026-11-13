@@ -87,6 +87,17 @@ export function formatHundredths(h: number): string {
   return `${Math.floor(h / 100)},${String(h % 100).padStart(2, "0")}`;
 }
 
+/** Soma metragens da API em centésimos inteiros (sem float); valores inválidos são ignorados. */
+export function sumHundredths(values: string[]): number {
+  return values.reduce((acc, v) => acc + (toHundredths(v) ?? 0), 0);
+}
+
+/** Centésimos → "1.234,50" (milhar com ponto). */
+export function formatHundredthsGrouped(h: number): string {
+  const int = String(Math.floor(h / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${int},${String(h % 100).padStart(2, "0")}`;
+}
+
 /** Valor da API ("20.5"/"20.50") → "20,50 m". */
 export function formatMeters(apiValue: string): string {
   const h = toHundredths(apiValue);

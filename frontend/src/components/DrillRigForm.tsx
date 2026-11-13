@@ -18,6 +18,7 @@ export type RigOut = {
 };
 
 export const STATUS_LABEL = { active: "Ativa", maintenance: "Manutenção", inactive: "Inativa" } as const;
+export const RIG_TONE = { active: "good", maintenance: "warn", inactive: "neutral" } as const;
 
 const EMPTY: Values = {
   name: "", max_diameter_cm: "", max_depth_m: "",

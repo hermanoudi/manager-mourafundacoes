@@ -142,12 +142,14 @@ test("office rejeita com motivo, operador corrige e reenvia, office aprova", asy
   await expectSubmitted(page, "20,50 m");
   const detailUrl = page.url();
 
+  const filter = (name: string) =>
+    page.getByRole("group", { name: "Filtrar por status" }).getByRole("button", { name });
   await page.goto("/medicoes");
-  await expect(page.getByLabel("Status")).toHaveValue("");
+  await expect(filter("Todas")).toHaveAttribute("aria-pressed", "true");
 
   await loginWith(page, office);
   await page.goto("/medicoes");
-  await expect(page.getByLabel("Status")).toHaveValue("submitted");
+  await expect(filter("Enviadas")).toHaveAttribute("aria-pressed", "true");
   await page.getByText(job.name).locator("visible=true").first().click();
   await expect(page).toHaveURL(detailUrl);
   await page.getByRole("button", { name: "Rejeitar" }).click();
@@ -180,4 +182,37 @@ test("office rejeita com motivo, operador corrige e reenvia, office aprova", asy
   await expect(page.getByTestId("measurement-status")).toHaveText("Aprovada");
   await expect(page.getByRole("link", { name: "Editar" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Reenviar" })).toHaveCount(0);
+});
+
+test("admin corrige, reenvia e exclui a medição de um operador", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  await loginWith(page, op);
+  await fillTwoPiles(page, job.id);
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "20,50 m");
+  const detailUrl = page.url();
+
+  const reject = async () => {
+    await page.getByRole("button", { name: "Rejeitar" }).click();
+    await page.getByLabel("Motivo da rejeição").fill("Conferir a E-2");
+    await page.getByRole("button", { name: "Confirmar rejeição" }).click();
+    await expect(page.getByTestId("measurement-status")).toHaveText("Rejeitada");
+  };
+
+  await loginAs(page, "admin");
+  await page.goto(detailUrl);
+  await reject();
+  await expect(page.getByRole("button", { name: "Reenviar" })).toBeVisible();
+  await page.getByRole("link", { name: "Editar" }).click();
+  await line(page, 2).getByLabel("Profundidade (m)").fill("13");
+  // Medição de outro autor não nasce aprovada: volta para a fila.
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "21,50 m");
+  expect(page.url()).toBe(detailUrl);
+
+  await reject();
+  page.once("dialog", (d) => void d.accept());
+  await page.getByRole("button", { name: "Excluir" }).click();
+  await expect(page).toHaveURL(new RegExp(`/obras/${job.id}\\?aba=medicoes`));
+  expect(await countMeasurements(job.id)).toBe(0);
 });

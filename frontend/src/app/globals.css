@@ -22,12 +22,78 @@
   --color-brand-soft: var(--brand-soft);
   --color-secondary: var(--secondary);
   --color-secondary-dark: var(--secondary-dark);
+
+  --font-sans: var(--font-barlow), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-barlow-condensed), var(--font-barlow), "Arial Narrow", sans-serif;
+
+  /* Cantos quase retos: o desenho é de chapa e régua, não de cartão arredondado. */
+  --radius-md: 3px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+
+  /* Escala maior que o padrão do Tailwind: o menor texto de leitura tem 16px, metadado 14px. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.35;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 1.15;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 1.05;
+}
+
+/* Rótulo de seção/campo: maiúsculas condensadas, espaçadas, na cor da marca. */
+@utility eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  line-height: 1.3;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brand);
+}
+
+/* Texto de botão: condensado, maiúsculo, pesado. */
+@utility btn-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Tailwind v4 usa currentColor como cor de borda padrão; o sistema usa o cinza do token. */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--border);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--secondary-dark);
+  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.5;
   overflow-x: hidden;
 }
 
@@ -55,9 +121,6 @@ h2 {
   text-wrap: balance;
 }
 
-h1 {
-  letter-spacing: -0.01em;
-}
 
 /* Leitura da foto: barra indeterminada; some quando o usuário pede menos movimento. */
 @keyframes mg-slide {
@@ -107,5 +170,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   border-color: var(--brand);
-  outline-offset: 0;
+  outline: none;
+  /* Campo em foco ganha a régua grossa embaixo. */
+  box-shadow: inset 0 -3px 0 var(--brand);
 }

@@ -3,7 +3,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 
-import { DrillRigForm, STATUS_LABEL, type RigOut } from "@/components/DrillRigForm";
+import { DrillRigForm, RIG_TONE, STATUS_LABEL, type RigOut } from "@/components/DrillRigForm";
+import { EntityHeader, Kpi, KpiGrid, panel, Pill, SectionHead } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { messageFor } from "@/lib/errors";
@@ -23,24 +24,29 @@ export default function PerfuratrizPage() {
   const canWrite = me?.role === "admin" || me?.role === "office";
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">{data.name}</h1>
-      <dl className="grid max-w-xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
-        <dt className="text-stone-600">Diâmetro máx.</dt>
-        <dd>{data.max_diameter_cm} cm</dd>
-        <dt className="text-stone-600">Profundidade máx.</dt>
-        <dd>{formatDecimalBR(data.max_depth_m)} m</dd>
-        <dt className="text-stone-600">Status</dt>
-        <dd>{STATUS_LABEL[data.status]}</dd>
-      </dl>
+    <div className="max-w-5xl space-y-6">
+      <EntityHeader title={data.name} meta={<Pill tone={RIG_TONE[data.status]}>{STATUS_LABEL[data.status]}</Pill>}>
+        <KpiGrid>
+          <Kpi label="Diâmetro máx." value={data.max_diameter_cm} unit="cm" />
+          <Kpi label="Profundidade máx." value={`${formatDecimalBR(data.max_depth_m)} m`} />
+        </KpiGrid>
+      </EntityHeader>
+      {data.notes && !canWrite && (
+        <p className={`${panel} max-w-2xl px-4 py-3 text-sm`}>{data.notes}</p>
+      )}
       {canWrite && (
-        <DrillRigForm
-          initial={data}
-          onSaved={(r) => {
-            qc.setQueryData(["rig", id], r);
-            qc.invalidateQueries({ queryKey: ["rigs"] });
-          }}
-        />
+        <section className="max-w-2xl">
+          <SectionHead title="Dados da perfuratriz" />
+          <div className={`${panel} p-4`}>
+            <DrillRigForm
+              initial={data}
+              onSaved={(r) => {
+                qc.setQueryData(["rig", id], r);
+                qc.invalidateQueries({ queryKey: ["rigs"] });
+              }}
+            />
+          </div>
+        </section>
       )}
     </div>
   );

@@ -106,8 +106,10 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const { data: me } = useMe();
-  // Medição lançada pelo admin já nasce aprovada (regra do servidor); o botão avisa.
-  const sendLabel = me?.role === "admin" ? "Lançar e aprovar" : "Enviar";
+  // Medição lançada pelo admin já nasce aprovada (regra do servidor); o botão avisa. Quando o
+  // admin corrige a medição de outro autor, ela volta para a fila de aprovação.
+  const ownByAdmin = me?.role === "admin" && (!server || server.created_by.id === me.id);
+  const sendLabel = ownByAdmin ? "Lançar e aprovar" : "Enviar";
   const [local] = useState(() => loadDraft(clientKey));
   const [values, setValues] = useState<Values>(() => fromSource(local ?? server, job));
   const [retry, setRetry] = useState<Retry | null>(() =>
@@ -264,7 +266,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
             type="button"
             disabled={busy}
             onClick={() => void send(retry.submit)}
-            className="mt-1 min-h-11 rounded-lg bg-amber-800 px-4 font-medium text-white disabled:opacity-60"
+            className="mt-1 min-h-11 rounded-lg bg-amber-800 px-4 btn-label text-white disabled:opacity-60"
           >
             Reenviar
           </button>
@@ -342,14 +344,14 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
             type="button"
             disabled={busy}
             onClick={() => void send(false)}
-            className="min-h-12 flex-1 rounded-lg border border-brand px-4 font-medium text-brand disabled:opacity-60 md:flex-none"
+            className="min-h-12 flex-1 whitespace-nowrap rounded-lg border border-brand px-3 btn-label text-brand disabled:opacity-60 md:flex-none md:px-4"
           >
             Salvar rascunho
           </button>
           <button
             type="submit"
             disabled={busy || reading || hasPhotoErrors(values)}
-            className="min-h-12 flex-1 rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60 md:flex-none"
+            className="min-h-12 flex-1 whitespace-nowrap rounded-lg bg-brand px-3 btn-label text-white hover:bg-brand-dark disabled:opacity-60 md:flex-none md:px-4"
           >
             {busy ? "Enviando…" : sendLabel}
           </button>

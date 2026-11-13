@@ -17,11 +17,13 @@ async function noHorizontalScroll(page: Page) {
 test("office edita a tabela de preços", async ({ page }) => {
   await loginAs(page, "office");
   await page.goto("/tabela-precos");
+  await page.getByRole("button", { name: "Editar preços" }).click();
   await page.getByLabel("Preço por metro, 40 cm").fill("11,5");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.getByText("Salvo")).toBeVisible();
+  await expect(page.getByText("Tabela salva")).toBeVisible();
   await page.reload();
   await expect(page.getByText("R$ 11,50")).toBeVisible();
+  await page.getByRole("button", { name: "Editar preços" }).click();
   await expect(page.getByLabel("Preço por metro, 40 cm")).toHaveValue("11,50");
   await noHorizontalScroll(page);
 });
@@ -46,8 +48,11 @@ test("office cria obra, aloca e inicia", async ({ page }) => {
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page).toHaveURL(/\/obras\/\d+$/);
 
-  await expect(page.getByRole("heading", { name: "Tabela contratada" })).toBeVisible();
   await expect(page.getByText("Planejada").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Para iniciar a obra" })).toBeVisible();
+  await page.getByRole("tab", { name: "Preços" }).click();
+  await expect(page).toHaveURL(/\?aba=precos$/);
+  await expect(page.getByRole("heading", { name: "Tabela contratada" })).toBeVisible();
   await noHorizontalScroll(page);
 
   await page.getByRole("button", { name: "Iniciar obra" }).click();
@@ -55,6 +60,8 @@ test("office cria obra, aloca e inicia", async ({ page }) => {
     page.getByText("Aloque ao menos uma perfuratriz e um operador antes de iniciar a obra"),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "Alocar equipe" }).click();
+  await expect(page.getByRole("tab", { name: "Equipe" })).toHaveAttribute("aria-selected", "true");
   await page.getByLabel(rig.name).check();
   await page.getByLabel(op.name).check();
   await page.getByRole("button", { name: "Salvar alocação" }).click();
@@ -84,6 +91,7 @@ test("operador alocado vê a obra sem preços; não alocada é 404", async ({ pa
   await page.getByText(mine.name).locator("visible=true").click();
   await expect(page).toHaveURL(new RegExp(`/obras/${mine.id}$`));
   await expect(page.getByRole("heading", { name: mine.name })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Preços" })).toHaveCount(0);
   await expect(page.getByText("Tabela contratada")).toHaveCount(0);
   await expect(page.getByText("R$")).toHaveCount(0);
   await noHorizontalScroll(page);

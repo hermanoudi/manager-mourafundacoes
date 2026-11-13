@@ -155,8 +155,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               key={i.href}
               href={i.href}
               aria-current={active(i.href) ? "page" : undefined}
-              className={`flex min-h-11 items-center gap-3 rounded-lg px-3 ${
-                active(i.href) ? "bg-brand-soft font-medium text-brand" : "hover:bg-stone-100"
+              className={`flex min-h-11 items-center gap-3 rounded-lg px-3 font-display text-lg font-semibold ${
+                active(i.href) ? "bg-stone-100 text-brand underline decoration-2 underline-offset-4" : "text-secondary-dark hover:bg-stone-100"
               }`}
             >
               <Icon name={i.icon} />
@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="border-t px-3 pt-3 text-sm">
           <div className="truncate">{me?.name}</div>
-          <button onClick={logout} className="mt-1 min-h-11 font-medium text-brand">
+          <button onClick={logout} className="btn-label mt-1 min-h-11 text-brand">
             Sair
           </button>
         </div>

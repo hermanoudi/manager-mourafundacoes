@@ -61,7 +61,7 @@ export function AddressFields() {
 
   return (
     <fieldset className="space-y-4 rounded-lg border p-3">
-      <legend className="px-1 text-sm font-medium">Endereço</legend>
+      <legend className="eyebrow px-1">Endereço</legend>
       <Field label="CEP" error={errors.zip_code?.message}>
         <input
           className={inputClass}

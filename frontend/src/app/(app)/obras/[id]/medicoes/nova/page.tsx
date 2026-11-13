@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 
 import type { JobOut } from "@/components/JobForm";
 import { MeasurementForm } from "@/components/MeasurementForm";
+import { PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { messageFor } from "@/lib/errors";
 import type { MeasurementOut } from "@/lib/measurements";
@@ -48,11 +49,15 @@ function NovaMedicao() {
   const clientKey = draftKey ?? server?.client_key ?? freshKey;
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">{server ? "Editar medição" : "Lançar medição"}</h1>
-        <p className="break-words text-sm text-stone-600">{job.data.name}</p>
-      </div>
+    <div className="min-w-0 max-w-2xl space-y-5">
+      <PageHeader
+        title={server ? "Editar medição" : "Lançar medição"}
+        description={
+          <Link href={`/obras/${job.data.id}`} className="break-words underline-offset-2 hover:underline">
+            {job.data.name}
+          </Link>
+        }
+      />
       {job.data.status !== "in_progress" && (
         <p role="alert" className="text-sm text-red-700">
           A obra precisa estar em execução para lançar medições

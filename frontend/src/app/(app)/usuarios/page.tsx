@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AccessDenied } from "@/components/AccessDenied";
 import { DataList } from "@/components/DataList";
 import { ROLE_LABEL, UserForm } from "@/components/UserForm";
+import { btnPrimary, btnQuiet, PageHeader, Pill } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { UserOut } from "@/lib/auth";
 import { isForbidden, messageFor } from "@/lib/errors";
@@ -16,7 +17,7 @@ export default function UsuariosPage() {
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [page, setPage] = useState(1);
-  const { data, error } = useQuery({
+  const { data, error, isPending } = useQuery({
     queryKey: ["users", page],
     queryFn: () => api<Page>(`/api/users?page=${page}`),
     retry: false,
@@ -29,28 +30,35 @@ export default function UsuariosPage() {
   if (isForbidden(error)) return <AccessDenied />;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Usuários</h1>
-        <button
-          type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="min-h-11 rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white"
-        >
-          Novo usuário
-        </button>
-      </div>
+    <div className="max-w-5xl space-y-5">
+      <PageHeader
+        title="Usuários"
+        description="Quem acessa o sistema e com qual papel."
+        actions={
+          <button
+            type="button"
+            aria-expanded={creating}
+            onClick={() => setCreating((v) => !v)}
+            className={creating ? btnQuiet : btnPrimary}
+          >
+            {creating ? "Fechar cadastro" : "Novo usuário"}
+          </button>
+        }
+      />
       {creating && (
-        <UserForm
-          onCreated={() => {
-            setCreating(false);
-            qc.invalidateQueries({ queryKey: ["users"] });
-          }}
-        />
+        <section aria-label="Novo usuário">
+          <UserForm
+            onCreated={() => {
+              setCreating(false);
+              qc.invalidateQueries({ queryKey: ["users"] });
+            }}
+          />
+        </section>
       )}
       {toggle.error && <p role="alert" className="text-sm text-red-700">{messageFor(toggle.error)}</p>}
       <DataList
         items={data?.items ?? []}
+        loading={isPending}
         total={data?.total}
         page={page}
         pageSize={data?.page_size}
@@ -58,18 +66,22 @@ export default function UsuariosPage() {
         getKey={(u) => u.id}
         columns={[
           { key: "name", label: "Nome" },
-          { key: "email", label: "E-mail" },
+          { key: "email", label: "E-mail", wide: true },
           { key: "role", label: "Papel", render: (u) => ROLE_LABEL[u.role] },
-          { key: "active", label: "Situação", render: (u) => (u.active ? "Ativo" : "Inativo") },
+          {
+            key: "active", label: "Situação", aside: true,
+            render: (u) => <Pill tone={u.active ? "good" : "neutral"}>{u.active ? "Ativo" : "Inativo"}</Pill>,
+          },
           {
             key: "actions",
             label: "",
+            footer: true,
             render: (u) => (
               <button
                 type="button"
                 aria-label={`${u.active ? "Desativar" : "Ativar"} ${u.name}`}
                 onClick={(e) => { e.stopPropagation(); toggle.mutate(u); }}
-                className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm"
+                className={`${btnQuiet} text-sm`}
               >
                 {u.active ? "Desativar" : "Ativar"}
               </button>

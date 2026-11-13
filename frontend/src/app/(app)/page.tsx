@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useSyncExternalStore } from "react";
 
 import { StatusBadge, type JobStatus } from "@/components/StatusBadge";
+import { btnPrimary, EmptyPanel, EntityHeader, Kpi, KpiGrid, panel, SectionHead } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { formatDateBR } from "@/lib/dates";
@@ -20,48 +21,22 @@ type MeasurementPage = { items: MeasurementSummary[]; total: number };
 type JobItem = { id: number; name: string; customer_name: string; city: string; status: JobStatus };
 type JobPage = { items: JobItem[]; total: number };
 
-const ROW =
-  "flex min-h-14 items-center justify-between gap-3 px-4 py-2 text-left hover:bg-stone-50";
+const ROW = "flex min-h-14 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-stone-50";
+const LIST = `${panel} divide-y overflow-hidden`;
 
-function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-medium">{title}</h2>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
-}
+const TODAY = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long",
+});
 
-const LIST = "divide-y overflow-hidden rounded-lg bg-white shadow-sm";
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-lg bg-white p-4 text-sm text-stone-700 shadow-sm">{children}</p>;
-}
-
-/** Obras em execução: o ponto de partida de toda medição. Uma só obra vira o atalho direto. */
-function LaunchSection({ jobs, loading, primary }: { jobs: JobItem[]; loading: boolean; primary: boolean }) {
-  if (loading) return <p className="text-sm text-stone-700">Carregando…</p>;
+/** Obras em execução: o ponto de partida de toda medição. */
+function LaunchList({ jobs, loading }: { jobs: JobItem[]; loading: boolean }) {
+  if (loading) return <EmptyPanel>Carregando…</EmptyPanel>;
   if (jobs.length === 0) {
     return (
-      <Empty>
+      <EmptyPanel>
         Nenhuma obra em execução. Para lançar medições, a obra precisa estar{" "}
-        <span className="font-medium">em execução</span>; peça ao escritório para iniciá-la.
-      </Empty>
-    );
-  }
-  if (jobs.length === 1 && primary) {
-    const job = jobs[0];
-    return (
-      <Link
-        href={`/obras/${job.id}/medicoes/nova`}
-        className="flex min-h-16 flex-col justify-center rounded-lg bg-brand px-4 py-3 text-white hover:bg-brand-dark"
-      >
-        <span className="text-lg font-semibold">Nova medição</span>
-        <span className="truncate text-sm text-white/90">{job.name}</span>
-      </Link>
+        <span className="font-medium text-secondary-dark">em execução</span>; peça ao escritório para iniciá-la.
+      </EmptyPanel>
     );
   }
   return (
@@ -70,10 +45,10 @@ function LaunchSection({ jobs, loading, primary }: { jobs: JobItem[]; loading: b
         <li key={job.id}>
           <Link href={`/obras/${job.id}/medicoes/nova`} className={ROW}>
             <span className="min-w-0">
-              <span className="block truncate font-medium">{job.name}</span>
-              <span className="block truncate text-sm text-stone-700">{job.customer_name} · {job.city}</span>
+              <span className="block truncate font-semibold">{job.name}</span>
+              <span className="block truncate text-sm text-stone-600">{job.customer_name} · {job.city}</span>
             </span>
-            <span className="shrink-0 text-sm font-medium text-brand">Lançar</span>
+            <span className="shrink-0 font-medium text-brand">Lançar</span>
           </Link>
         </li>
       ))}
@@ -88,15 +63,18 @@ function MeasurementRows({ items, showReason }: { items: MeasurementSummary[]; s
         <li key={m.id}>
           <Link href={`/medicoes/${m.id}`} className={ROW}>
             <span className="min-w-0">
-              <span className="block truncate font-medium">{m.job.name}</span>
-              <span data-numeric className="block truncate text-sm text-stone-700">
-                {formatDateBR(m.work_date)} · {m.rig.name} · {formatMeters(m.total_m)}
+              <span className="block truncate font-semibold">{m.job.name}</span>
+              <span data-numeric className="block truncate text-sm text-stone-600">
+                {formatDateBR(m.work_date)} · {m.rig.name} · {m.created_by.name}
               </span>
               {showReason && m.rejection_reason && (
                 <span className="mt-0.5 block truncate text-sm text-red-900">{m.rejection_reason}</span>
               )}
             </span>
-            <StatusBadge kind="measurement" status={m.status} />
+            <span className="flex shrink-0 flex-col items-end gap-1">
+              <span className="font-semibold tabular-nums">{formatMeters(m.total_m)}</span>
+              <StatusBadge kind="measurement" status={m.status} />
+            </span>
           </Link>
         </li>
       ))}
@@ -113,12 +91,12 @@ function DraftRows({ drafts, jobs }: { drafts: MeasurementDraft[]; jobs: JobItem
           <li key={d.client_key}>
             <Link href={`/obras/${d.job_id}/medicoes/nova?rascunho=${d.client_key}`} className={ROW}>
               <span className="min-w-0">
-                <span className="block truncate font-medium">{job?.name ?? `Obra #${d.job_id}`}</span>
-                <span data-numeric className="block truncate text-sm text-stone-700">
+                <span className="block truncate font-semibold">{job?.name ?? `Obra #${d.job_id}`}</span>
+                <span data-numeric className="block truncate text-sm text-stone-600">
                   {formatDateBR(d.work_date)} · {pilesLabel(d.lines.length)}
                 </span>
               </span>
-              <span className="shrink-0 text-sm font-medium text-amber-900">
+              <span className="shrink-0 font-medium text-amber-900">
                 {d.submit ? "Envio pendente" : "Continuar"}
               </span>
             </Link>
@@ -132,7 +110,8 @@ function DraftRows({ drafts, jobs }: { drafts: MeasurementDraft[]; jobs: JobItem
 export default function HomePage() {
   const { data: me } = useMe();
   const reviewer = me?.role === "admin" || me?.role === "office";
-  const canLaunch = me?.role === "admin" || me?.role === "operator";
+  const operator = me?.role === "operator";
+  const canLaunch = me?.role === "admin" || operator;
 
   // Rascunhos vivem no aparelho (localStorage): só existem depois da hidratação.
   const draftsJson = useSyncExternalStore(subscribeStorage, () => JSON.stringify(listDrafts()), () => "[]");
@@ -146,72 +125,82 @@ export default function HomePage() {
   const rejected = useQuery({
     queryKey: ["measurements", "rejected", 1],
     queryFn: () => api<MeasurementPage>("/api/measurements?page=1&status=rejected"),
-    enabled: me?.role === "operator",
+    enabled: operator,
   });
   const jobs = useQuery({
     queryKey: ["jobs", "", "in_progress", 1],
     queryFn: () => api<JobPage>("/api/jobs?q=&page=1&status=in_progress"),
-    enabled: canLaunch,
+    enabled: !!me,
   });
 
   const jobItems = jobs.data?.items ?? [];
   const queueItems = queue.data?.items ?? [];
   const rejectedItems = rejected.data?.items ?? [];
   const firstName = me?.name.split(" ")[0];
+  const count = (q: { data?: { total: number } }) => (q.data ? String(q.data.total) : "…");
+  const singleJob = operator && jobItems.length === 1 ? jobItems[0] : null;
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Início</h1>
-        {firstName && <p className="text-sm text-stone-700">Olá, {firstName}.</p>}
-      </div>
+    <div className="max-w-5xl space-y-8">
+      <EntityHeader
+        title={firstName ? `Olá, ${firstName}` : "Início"}
+        meta={<span className="first-letter:uppercase">{TODAY.format(new Date())}</span>}
+        actions={singleJob && (
+          <Link href={`/obras/${singleJob.id}/medicoes/nova`} className={`${btnPrimary} min-h-12`}>
+            Nova medição
+          </Link>
+        )}
+      >
+        {me && (
+          <KpiGrid>
+            {reviewer && <Kpi label="Para aprovar" value={count(queue)} />}
+            <Kpi label="Obras em execução" value={count(jobs)} />
+            {operator && <Kpi label="Rejeitadas" value={count(rejected)} />}
+            <Kpi label="Rascunhos no aparelho" value={drafts.length} />
+          </KpiGrid>
+        )}
+      </EntityHeader>
 
       {reviewer && (
-        <Section
-          title="Para aprovar"
-          aside={
-            (queue.data?.total ?? 0) > queueItems.length && (
-              <Link href="/medicoes" className="text-sm font-medium text-brand underline">
+        <section>
+          <SectionHead
+            title="Para aprovar"
+            action={(queue.data?.total ?? 0) > queueItems.length && (
+              <Link href="/medicoes" className="min-h-11 px-2 py-2.5 text-sm font-medium text-brand">
                 Ver todas ({queue.data?.total})
               </Link>
-            )
-          }
-        >
+            )}
+          />
           {queue.isPending ? (
-            <p className="text-sm text-stone-700">Carregando…</p>
+            <EmptyPanel>Carregando…</EmptyPanel>
           ) : queueItems.length === 0 ? (
-            <Empty>Nenhuma medição aguardando aprovação. Quando um operador enviar, ela aparece aqui.</Empty>
+            <EmptyPanel>Nenhuma medição aguardando aprovação. Quando um operador enviar, ela aparece aqui.</EmptyPanel>
           ) : (
             <MeasurementRows items={queueItems} />
           )}
-        </Section>
+        </section>
       )}
 
-      {me?.role === "operator" && (
-        <Section title="Lançar medição">
-          <LaunchSection jobs={jobItems} loading={jobs.isPending} primary />
-        </Section>
-      )}
-
-      {me?.role === "operator" && rejectedItems.length > 0 && (
-        <Section title="Rejeitadas — corrigir e reenviar">
+      {operator && rejectedItems.length > 0 && (
+        <section>
+          <SectionHead title="Rejeitadas — corrigir e reenviar" />
           <MeasurementRows items={rejectedItems} showReason />
-        </Section>
+        </section>
       )}
 
       {drafts.length > 0 && (
-        <Section title="Rascunhos neste aparelho">
+        <section>
+          <SectionHead title="Rascunhos neste aparelho" />
           <DraftRows drafts={drafts} jobs={jobItems} />
-        </Section>
+        </section>
       )}
 
-      {me?.role === "admin" && (
-        <Section title="Lançar medição">
-          <LaunchSection jobs={jobItems} loading={jobs.isPending} primary={false} />
-        </Section>
+      {canLaunch && !singleJob && (
+        <section>
+          <SectionHead title="Lançar medição" />
+          <LaunchList jobs={jobItems} loading={jobs.isPending} />
+        </section>
       )}
-
-
     </div>
   );
 }

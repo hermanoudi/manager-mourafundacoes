@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { sameContent, type MeasurementIn, type MeasurementOut } from "@/lib/measurements";
+import {
+  formatHundredthsGrouped, sameContent, sumHundredths, type MeasurementIn, type MeasurementOut,
+} from "@/lib/measurements";
+
+describe("sumHundredths / formatHundredthsGrouped", () => {
+  it("soma metragens da API sem float e ignora inválidas", () => {
+    expect(sumHundredths(["0.1", "0.2", "19.25", "x"])).toBe(1955);
+    expect(sumHundredths([])).toBe(0);
+  });
+  it("formata com milhar e duas casas", () => {
+    expect(formatHundredthsGrouped(123456789)).toBe("1.234.567,89");
+    expect(formatHundredthsGrouped(5)).toBe("0,05");
+  });
+});
 
 const payload = (over: Partial<MeasurementIn> = {}): MeasurementIn => ({
   client_key: "k",

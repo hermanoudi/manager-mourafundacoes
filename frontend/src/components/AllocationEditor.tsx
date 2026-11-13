@@ -10,12 +10,24 @@ import type { JobOut } from "./JobForm";
 
 type Named = { id: number; name: string };
 
+/** Todas as perfuratrizes ativas: a API pagina em no máximo 100 por vez. */
+async function fetchActiveRigs(): Promise<{ items: Named[] }> {
+  const items: Named[] = [];
+  for (let page = 1; ; page++) {
+    const p = await api<{ items: Named[]; total: number }>(
+      `/api/drill-rigs?status=active&page_size=100&page=${page}`,
+    );
+    items.push(...p.items);
+    if (p.items.length === 0 || items.length >= p.total) return { items };
+  }
+}
+
 function Checks({ legend, options, selected, onToggle }: {
   legend: string; options: Named[]; selected: number[]; onToggle: (id: number) => void;
 }) {
   return (
     <fieldset className="space-y-1">
-      <legend className="text-sm font-medium">{legend}</legend>
+      <legend className="eyebrow">{legend}</legend>
       {options.length === 0 && <p className="text-sm text-stone-600">Nenhum disponível.</p>}
       {options.map((o) => (
         <label key={o.id} className="flex min-h-11 items-center gap-3 text-base">
@@ -34,11 +46,11 @@ function Checks({ legend, options, selected, onToggle }: {
 
 /** Somente leitura para operador; edição para escritório/admin enquanto a obra não está encerrada. */
 export function AllocationEditor({
-  job, canEdit, onSaved,
-}: { job: JobOut; canEdit: boolean; onSaved: (j: JobOut) => void }) {
+  job, canEdit, onSaved, onCancel,
+}: { job: JobOut; canEdit: boolean; onSaved: (j: JobOut) => void; onCancel?: () => void }) {
   const { data: rigPage } = useQuery({
     queryKey: ["rigs-active"],
-    queryFn: () => api<{ items: Named[] }>("/api/drill-rigs?status=active&page_size=100"),
+    queryFn: fetchActiveRigs,
     enabled: canEdit,
   });
   const { data: operators } = useQuery({
@@ -54,7 +66,7 @@ export function AllocationEditor({
 
   if (!canEdit) {
     return (
-      <dl className="grid max-w-2xl grid-cols-2 gap-2 rounded-lg bg-white p-3 text-sm shadow-sm">
+      <dl className="grid max-w-2xl grid-cols-2 gap-2 rounded-xl border bg-white p-4 text-sm">
         <dt className="text-stone-600">Perfuratrizes</dt>
         <dd>{job.rigs.map((r) => r.name).join(", ") || "—"}</dd>
         <dt className="text-stone-600">Operadores</dt>
@@ -90,19 +102,31 @@ export function AllocationEditor({
   }
 
   return (
-    <div className="max-w-2xl space-y-4 rounded-lg bg-white p-3 shadow-sm">
+    <div className="max-w-2xl space-y-4 rounded-xl border bg-white p-4">
       <Checks legend="Perfuratrizes" options={rigOptions} selected={rigIds} onToggle={toggle(setRigIds)} />
       <Checks legend="Operadores" options={operators ?? []} selected={opIds} onToggle={toggle(setOpIds)} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {saved && <p className="text-sm text-green-800">Alocação salva</p>}
-      <button
-        type="button"
-        onClick={save}
-        disabled={busy}
-        className="min-h-11 w-full rounded-lg bg-brand px-4 font-medium text-white hover:bg-brand-dark disabled:opacity-60 md:w-auto"
-      >
-        {busy ? "Salvando…" : "Salvar alocação"}
-      </button>
+      {saved && !onCancel && <p className="text-sm text-green-800">Alocação salva</p>}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy}
+          className="min-h-11 w-full rounded-lg bg-brand px-4 btn-label text-white hover:bg-brand-dark disabled:opacity-60 md:w-auto"
+        >
+          {busy ? "Salvando…" : "Salvar alocação"}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="btn-label min-h-11 w-full rounded-lg px-4 text-stone-700 hover:bg-stone-100 md:w-auto"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </div>
   );
 }

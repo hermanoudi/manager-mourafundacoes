@@ -14,7 +14,7 @@ export function PasswordInput({ className, ...rest }: Props) {
         type={visible ? "text" : "password"}
         className={
           className ??
-          "block min-h-11 w-full rounded-lg border border-stone-300 bg-white py-2 pl-3 pr-12 text-base"
+          "block min-h-11 w-full rounded-lg border border-stone-400 bg-white py-2 pl-3 pr-12 text-base"
         }
       />
       <button

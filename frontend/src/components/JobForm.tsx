@@ -77,9 +77,11 @@ function CustomerPicker({ value, onChange, error }: {
 export function JobForm({
   initial,
   onSaved,
+  onCancel,
 }: {
   initial?: JobOut;
   onSaved: (saved: JobOut) => void;
+  onCancel?: () => void;
 }) {
   const form = useForm<Values>({
     resolver: zodResolver(jobSchema),
@@ -150,7 +152,7 @@ export function JobForm({
         {locked ? (
           <p className="text-sm text-stone-600">Obra encerrada: dados bloqueados para edição.</p>
         ) : (
-          <SubmitBar busy={isSubmitting} error={formError} saved={saved} />
+          <SubmitBar busy={isSubmitting} error={formError} saved={saved && !onCancel} onCancel={onCancel} />
         )}
       </form>
     </FormProvider>

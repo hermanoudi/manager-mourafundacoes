@@ -44,23 +44,35 @@ function toPayload(v: Values): PriceTableOut {
 /** Resumo somente leitura da tabela. */
 export function PriceTableView({ table }: { table: PriceTableOut }) {
   return (
-    <div className="max-w-2xl space-y-3 rounded-lg bg-white p-3 text-sm shadow-sm">
-      <dl className="grid grid-cols-2 gap-2">
-        <dt className="text-stone-600">Mobilização</dt>
-        <dd>{formatMoneyBR(table.mobilization_fee)}</dd>
-        <dt className="text-stone-600">Valor mínimo</dt>
-        <dd>{table.minimum_amount ? formatMoneyBR(table.minimum_amount) : "Sem mínimo"}</dd>
-        <dt className="text-stone-600">Profundidade tabelada</dt>
-        <dd>até {formatDecimalBR(table.max_tabled_depth_m)} m</dd>
-      </dl>
-      <ul className="divide-y">
-        {table.items.map((i) => (
-          <li key={i.diameter_cm} className="flex justify-between py-1.5">
-            <span>{i.diameter_cm} cm</span>
-            <span>{formatMoneyBR(i.price_per_m)}/m</span>
-          </li>
+    <div className="max-w-2xl overflow-hidden border border-t-2 border-t-brand bg-white text-sm">
+      <dl className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        {[
+          ["Mobilização", formatMoneyBR(table.mobilization_fee)],
+          ["Valor mínimo", table.minimum_amount ? formatMoneyBR(table.minimum_amount) : "Sem mínimo"],
+          ["Profundidade tabelada", `até ${formatDecimalBR(table.max_tabled_depth_m)} m`],
+        ].map(([k, v]) => (
+          <div key={k} className="flex min-w-0 items-baseline justify-between gap-3 px-4 py-2.5 sm:block sm:py-3">
+            <dt className="text-stone-700 sm:eyebrow">{k}</dt>
+            <dd className="font-display text-xl font-bold tabular-nums sm:mt-1">{v}</dd>
+          </div>
         ))}
-      </ul>
+      </dl>
+      <table className="w-full border-t border-brand-tint">
+        <thead className="border-b border-brand text-left">
+          <tr>
+            <th scope="col" className="eyebrow px-4 pb-2 pt-3">Diâmetro</th>
+            <th scope="col" className="eyebrow px-4 pb-2 pt-3 text-right">Preço por metro</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-brand-tint/70">
+          {table.items.map((i) => (
+            <tr key={i.diameter_cm}>
+              <th scope="row" className="px-4 py-2.5 text-left font-sans font-semibold">{i.diameter_cm} cm</th>
+              <td className="px-4 py-2.5 text-right tabular-nums">{formatMoneyBR(i.price_per_m)}/m</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -82,9 +94,9 @@ export function PriceTableEditor({
   );
 }
 
-function PriceTableForm({
-  table, onSave,
-}: { table: PriceTableOut; onSave: (t: PriceTableOut) => Promise<void> }) {
+export function PriceTableForm({
+  table, onSave, onCancel,
+}: { table: PriceTableOut; onSave: (t: PriceTableOut) => Promise<void>; onCancel?: () => void }) {
   const { control, handleSubmit, formState } = useForm<Values>({
     resolver: zodResolver(priceTableSchema),
     defaultValues: toValues(table),
@@ -143,11 +155,11 @@ function PriceTableForm({
       </Field>
 
       <fieldset className="space-y-3 rounded-lg border p-3">
-        <legend className="px-1 text-sm font-medium">Preço por metro</legend>
+        <legend className="eyebrow px-1">Preço por metro</legend>
         {fields.map((f, i) => (
           <div key={f.id}>
           <div className="flex items-center gap-2">
-            <span className="w-16 shrink-0 text-sm">{f.diameter_cm} cm</span>
+            <span className="w-16 shrink-0 text-sm font-medium">{f.diameter_cm} cm</span>
             <Controller
               control={control}
               name={`items.${i}.price_per_m`}
@@ -156,7 +168,7 @@ function PriceTableForm({
                   aria-label={`Preço por metro, ${f.diameter_cm} cm`}
                   value={field.value}
                   onChange={field.onChange}
-                  className={`${inputClass} mt-0 min-w-0 flex-1`}
+                  className={`${inputClass} !mt-0 min-w-0 flex-1`}
                 />
               )}
             />
@@ -175,8 +187,8 @@ function PriceTableForm({
           </div>
         ))}
         <div className="flex items-end gap-2">
-          <label className="block flex-1 text-sm font-medium">
-            Novo diâmetro (cm)
+          <label className="block flex-1">
+            <span className="eyebrow">Novo diâmetro (cm)</span>
             <input
               className={inputClass}
               inputMode="numeric"
@@ -184,13 +196,13 @@ function PriceTableForm({
               onChange={(e) => setNewDiameter(e.target.value.replace(/\D/g, ""))}
             />
           </label>
-          <button type="button" onClick={addRow} className="min-h-11 rounded-lg border px-4">
+          <button type="button" onClick={addRow} className="btn-label min-h-11 rounded-lg border border-stone-400 bg-white px-4">
             Adicionar
           </button>
         </div>
         {addError && <p className="text-sm text-red-700">{addError}</p>}
       </fieldset>
-      <SubmitBar busy={isSubmitting} error={formError} saved={saved} />
+      <SubmitBar busy={isSubmitting} error={formError} saved={saved && !onCancel} onCancel={onCancel} />
     </form>
   );
 }

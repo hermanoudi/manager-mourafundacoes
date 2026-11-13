@@ -8,11 +8,11 @@ test("login e logout", async ({ page }) => {
   await page.getByLabel("E-mail").fill(" E2E-Admin@Moura.test ");
   await page.getByLabel("Senha", { exact: true }).fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Início" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Olá, E2E" })).toBeVisible();
   await expect(page.getByText("E2E Admin").locator("visible=true")).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Início" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Olá, E2E" })).toBeVisible();
 
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login/);

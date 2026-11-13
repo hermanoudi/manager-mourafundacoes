@@ -21,7 +21,7 @@ export function DecimalInput({ value, onChange, className, ...rest }: Props) {
       }}
       className={
         className ??
-        "mt-1 block min-h-11 w-full rounded-lg border border-stone-300 px-3 text-base"
+        "mt-1.5 block min-h-11 w-full rounded-lg border border-stone-400 bg-white px-3 text-base"
       }
     />
   );

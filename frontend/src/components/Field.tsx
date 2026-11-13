@@ -1,7 +1,9 @@
 import { cloneElement, isValidElement, useId } from "react";
 
+import { btnPrimary, btnQuiet } from "./ui";
+
 export const inputClass =
-  "mt-1 block min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-base";
+  "mt-1.5 block min-h-11 w-full rounded-lg border border-stone-400 bg-white px-3 text-base";
 
 export function Field({
   label,
@@ -19,8 +21,8 @@ export function Field({
       ? cloneElement(children, { "aria-invalid": true, "aria-describedby": errorId })
       : children;
   return (
-    <label className="block text-sm font-medium">
-      {label}
+    <label className="block">
+      <span className="eyebrow">{label}</span>
       {control}
       {error && (
         <span id={errorId} className="mt-1 block text-sm font-normal text-red-700">
@@ -31,7 +33,9 @@ export function Field({
   );
 }
 
-export function SubmitBar({ busy, error, saved }: { busy: boolean; error?: string | null; saved?: boolean }) {
+export function SubmitBar({
+  busy, error, saved, onCancel,
+}: { busy: boolean; error?: string | null; saved?: boolean; onCancel?: () => void }) {
   return (
     <div className="space-y-2">
       {error && (
@@ -40,13 +44,25 @@ export function SubmitBar({ busy, error, saved }: { busy: boolean; error?: strin
         </p>
       )}
       {saved && <p className="text-sm text-green-800">Salvo</p>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="min-h-11 w-full rounded-lg bg-brand hover:bg-brand-dark px-4 font-medium text-white disabled:opacity-60 md:w-auto"
-      >
-        {busy ? "Salvando…" : "Salvar"}
-      </button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button
+          type="submit"
+          disabled={busy}
+          className={`${btnPrimary} w-full md:w-auto`}
+        >
+          {busy ? "Salvando…" : "Salvar"}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className={`${btnQuiet} w-full md:w-auto`}
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
     </div>
   );
 }
