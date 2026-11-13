@@ -433,6 +433,34 @@ async def test_admin_submitting_operators_draft_does_not_approve_it(ctx, login_u
     assert resp.json()["reviewed_by"] is None
 
 
+async def test_admin_edits_operators_rejected_measurement_via_upsert(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    payload = body(ctx, [line("E-1")], submit=True)
+    m = await create(ctx.op_a, payload)
+    resp = await admin.post(f"/api/measurements/{m['id']}/reject", json={"reason": "Conferir"})
+    assert resp.status_code == 200, resp.text
+    fixed = await create(admin, {**payload, "lines": [line("E-1", depth="9")]}, 200)
+    assert fixed["id"] == m["id"]
+    assert fixed["created_by"]["id"] == m["created_by"]["id"]
+    assert fixed["lines"][0]["depth_m"] == "9.00"
+    assert fixed["status"] == "submitted"
+
+
+async def test_office_cannot_upsert_operators_measurement(ctx):
+    payload = body(ctx, [line("E-1")])
+    await create(ctx.op_a, payload)
+    resp = await ctx.office.post("/api/measurements", json=payload)
+    assert resp.status_code == 409
+    assert resp.json()["code"] == "duplicate_client_key"
+
+
+async def test_admin_deletes_operators_draft(ctx, login_user):
+    admin, _ = await login_user("admin@moura.test", "admin")
+    m = await create(ctx.op_a, body(ctx, [line("E-1")]))
+    resp = await admin.delete(f"/api/measurements/{m['id']}")
+    assert resp.status_code == 204, resp.text
+
+
 async def test_job_with_admin_measurement_can_be_completed(ctx, login_user):
     admin, _ = await login_user("admin@moura.test", "admin")
     await create(admin, body(ctx, [line("E-1")], submit=True), 201)

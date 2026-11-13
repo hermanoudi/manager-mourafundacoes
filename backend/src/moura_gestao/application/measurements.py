@@ -198,7 +198,9 @@ async def _replay(
     measurements: MeasurementRepository, jobs: JobRepository, user: User, now: datetime,
     existing: Measurement, job_id: int, payload: dict[str, Any], submit: bool,
 ) -> Measurement:
-    if existing.created_by != user.id or existing.job_id != job_id:
+    # O admin pode corrigir a medição de qualquer autor; os demais, só as próprias.
+    owner = existing.created_by == user.id or user.role == Role.ADMIN
+    if not owner or existing.job_id != job_id:
         raise Conflict("duplicate_client_key", "Este identificador já pertence a outra medição")
     if existing.status not in EDITABLE_STATUSES:
         return existing
