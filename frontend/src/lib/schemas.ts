@@ -49,7 +49,8 @@ const num = (s: string) => Number(s.replace(",", "."));
 
 export const priceTableSchema = z
   .object({
-    mobilization_fee: z.string().refine((v) => moneyBR.test(v), "Valor inválido"),
+    // vazio = a negociar (só na obra; a tabela global exige o valor de Uberlândia)
+    mobilization_fee: z.string().refine((v) => v === "" || moneyBR.test(v), "Valor inválido"),
     minimum_amount: z.string().refine((v) => v === "" || moneyBR.test(v), "Valor inválido"),
     max_tabled_depth_m: z
       .string()

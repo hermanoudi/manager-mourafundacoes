@@ -20,6 +20,7 @@ from moura_gestao.domain.jobs import (
     JobStatus,
     JobSummary,
     can_transition,
+    is_home_city,
 )
 from moura_gestao.domain.measurements import MeasurementStatus
 from moura_gestao.domain.pricing import PriceTable, validate_items
@@ -51,11 +52,16 @@ async def create_job(
     if await customers.get(customer_id) is None:
         raise NotFound("Cliente não encontrado")
     _check_dates(start_date, end_date)
-    table = prices if prices is not None else await price_table.get()
+    if prices is not None:
+        table, mobilization_fee = prices, prices.mobilization_fee
+    else:
+        table = await price_table.get()
+        # a taxa global é a de Uberlândia; em outra cidade a obra nasce "a negociar"
+        mobilization_fee = table.mobilization_fee if is_home_city(address) else None
     return await jobs.add(
         Job(
             id=None, name=name, customer_id=customer_id, address=address,
-            mobilization_fee=table.mobilization_fee, minimum_amount=table.minimum_amount,
+            mobilization_fee=mobilization_fee, minimum_amount=table.minimum_amount,
             max_tabled_depth_m=table.max_tabled_depth_m, start_date=start_date,
             end_date=end_date, notes=notes, items=validate_items(list(table.items)),
         )
@@ -98,6 +104,11 @@ async def update_job(
             raise Conflict(
                 "job_not_ready",
                 "Aloque ao menos uma perfuratriz e um operador antes de iniciar a obra",
+            )
+        if status == JobStatus.IN_PROGRESS and job.mobilization_fee is None:
+            raise Conflict(
+                "mobilization_pending",
+                "Feche a negociação da mobilização antes de iniciar a obra",
             )
         if status == JobStatus.COMPLETED:
             # mesmo lock das escritas de medição: um envio concorrente não escapa da contagem

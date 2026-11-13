@@ -10,6 +10,7 @@ const MESSAGES: Record<string, string> = {
   validation_error: "Verifique os campos informados",
   not_found: "Registro não encontrado",
   job_not_ready: "Aloque ao menos uma perfuratriz e um operador antes de iniciar a obra",
+  mobilization_pending: "Feche a negociação da mobilização antes de iniciar a obra",
   job_locked: "A tabela de uma obra concluída ou cancelada não pode mudar",
   invalid_status_transition: "Esta mudança de status não é permitida",
   rig_unavailable: "A perfuratriz selecionada não está disponível",

@@ -13,7 +13,8 @@ class PriceItem:
 
 @dataclass(frozen=True)
 class PriceTable:
-    mobilization_fee: Decimal
+    # Na tabela global é a mobilização de Uberlândia-MG; na obra, None = "a negociar".
+    mobilization_fee: Decimal | None
     minimum_amount: Decimal | None
     max_tabled_depth_m: Decimal
     items: list[PriceItem]

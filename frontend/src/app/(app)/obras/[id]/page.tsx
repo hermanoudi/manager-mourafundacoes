@@ -311,6 +311,7 @@ export default function ObraPage() {
 
   const sent = measurements?.filter((m) => m.status !== "draft") ?? [];
   const missingTeam = job.rigs.length === 0 || job.operators.length === 0;
+  const mobilizationPending = !!job.prices && job.prices.mobilization_fee === null;
 
   const actions =
     job.status === "in_progress" || next ? (
@@ -341,6 +342,12 @@ export default function ObraPage() {
               Alocar equipe
             </button>
           )}
+          {!missingTeam && mobilizationPending && canWrite && !closed && (
+            <button type="button" onClick={() => { setActionError(null); goTab("precos", true); }}
+              className="min-h-11 font-medium underline underline-offset-2">
+              Definir mobilização
+            </button>
+          )}
         </div>
       )}
 
@@ -355,6 +362,7 @@ export default function ObraPage() {
                   <SectionHead title="Para iniciar a obra" />
                   <ul className={`${panel} divide-y`}>
                     <CheckItem done={!!job.prices?.items.length} label="Tabela contratada" onGo={() => goTab("precos", true)} />
+                    <CheckItem done={!mobilizationPending} label="Mobilização negociada" onGo={() => goTab("precos", true)} />
                     <CheckItem done={job.rigs.length > 0} label="Perfuratriz alocada" onGo={() => goTab("equipe", true)} />
                     <CheckItem done={job.operators.length > 0} label="Operador alocado" onGo={() => goTab("equipe", true)} />
                   </ul>

@@ -1,3 +1,4 @@
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -27,6 +28,21 @@ _ALLOWED = frozenset(
 
 LOCKED_STATUSES = frozenset({JobStatus.COMPLETED, JobStatus.CANCELLED})
 
+# A mobilização da tabela global vale só para obras na cidade-sede; fora dela é negociada.
+HOME_CITY_IBGE_CODE = "3170206"  # Uberlândia-MG
+_HOME_CITY, _HOME_STATE = "uberlandia", "MG"
+
+
+def _fold(text: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", text)
+    return " ".join("".join(c for c in decomposed if not unicodedata.combining(c)).lower().split())
+
+
+def is_home_city(address: Address) -> bool:
+    if address.ibge_city_code:
+        return address.ibge_city_code == HOME_CITY_IBGE_CODE
+    return _fold(address.city) == _HOME_CITY and address.state.strip().upper() == _HOME_STATE
+
 
 def can_transition(src: JobStatus, dst: JobStatus) -> bool:
     return (src, dst) in _ALLOWED
@@ -38,7 +54,7 @@ class Job:
     name: str
     customer_id: int
     address: Address
-    mobilization_fee: Decimal
+    mobilization_fee: Decimal | None  # None = a negociar
     max_tabled_depth_m: Decimal
     minimum_amount: Decimal | None = None
     status: JobStatus = JobStatus.PLANNED

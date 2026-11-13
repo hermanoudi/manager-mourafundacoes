@@ -148,7 +148,7 @@ class JobModel(Base):
     status: Mapped[str] = mapped_column(String(12))
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
-    mobilization_fee: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    mobilization_fee: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     minimum_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     max_tabled_depth_m: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     notes: Mapped[str | None] = mapped_column(Text)

@@ -13,15 +13,21 @@ import { DecimalInput } from "./DecimalInput";
 import { Field, inputClass, SubmitBar } from "./Field";
 
 export type PriceTableOut = {
-  mobilization_fee: string;
+  /** Na tabela global: mobilização em Uberlândia-MG. Na obra: null = a negociar. */
+  mobilization_fee: string | null;
   minimum_amount: string | null;
   max_tabled_depth_m: string;
   items: { diameter_cm: number; price_per_m: string }[];
 };
 
+/** `global`: tabela de referência (mobilização de Uberlândia); `job`: tabela contratada da obra. */
+type Scope = "global" | "job";
+
+const HOME_CITY = "Uberlândia-MG";
+
 function toValues(t: PriceTableOut): Values {
   return {
-    mobilization_fee: formatDecimalBR(t.mobilization_fee),
+    mobilization_fee: t.mobilization_fee ? formatDecimalBR(t.mobilization_fee) : "",
     minimum_amount: t.minimum_amount ? formatDecimalBR(t.minimum_amount) : "",
     max_tabled_depth_m: formatDecimalBR(t.max_tabled_depth_m),
     items: t.items.map((i) => ({
@@ -32,7 +38,7 @@ function toValues(t: PriceTableOut): Values {
 
 function toPayload(v: Values): PriceTableOut {
   return {
-    mobilization_fee: toApiDecimal(v.mobilization_fee),
+    mobilization_fee: v.mobilization_fee === "" ? null : toApiDecimal(v.mobilization_fee),
     minimum_amount: v.minimum_amount === "" ? null : toApiDecimal(v.minimum_amount),
     max_tabled_depth_m: toApiDecimal(v.max_tabled_depth_m),
     items: [...v.items]
@@ -42,12 +48,16 @@ function toPayload(v: Values): PriceTableOut {
 }
 
 /** Resumo somente leitura da tabela. */
-export function PriceTableView({ table }: { table: PriceTableOut }) {
+export function PriceTableView({ table, scope = "job" }: { table: PriceTableOut; scope?: Scope }) {
+  const mobilization =
+    scope === "global"
+      ? ["Mobilização (Uberlândia-MG)", table.mobilization_fee ? formatMoneyBR(table.mobilization_fee) : "—"]
+      : ["Mobilização", table.mobilization_fee ? formatMoneyBR(table.mobilization_fee) : "A negociar"];
   return (
     <div className="max-w-2xl overflow-hidden border border-t-2 border-t-brand bg-white text-sm">
       <dl className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {[
-          ["Mobilização", formatMoneyBR(table.mobilization_fee)],
+          mobilization,
           ["Valor mínimo", table.minimum_amount ? formatMoneyBR(table.minimum_amount) : "Sem mínimo"],
           ["Profundidade tabelada", `até ${formatDecimalBR(table.max_tabled_depth_m)} m`],
         ].map(([k, v]) => (
@@ -73,6 +83,11 @@ export function PriceTableView({ table }: { table: PriceTableOut }) {
           ))}
         </tbody>
       </table>
+      {scope === "global" && (
+        <p className="border-t border-brand-tint px-4 py-2.5 text-stone-700">
+          Fora de {HOME_CITY}, a mobilização é negociada em cada obra.
+        </p>
+      )}
     </div>
   );
 }
@@ -95,9 +110,14 @@ export function PriceTableEditor({
 }
 
 export function PriceTableForm({
-  table, onSave, onCancel,
-}: { table: PriceTableOut; onSave: (t: PriceTableOut) => Promise<void>; onCancel?: () => void }) {
-  const { control, handleSubmit, formState } = useForm<Values>({
+  table, onSave, onCancel, scope = "job",
+}: {
+  table: PriceTableOut;
+  onSave: (t: PriceTableOut) => Promise<void>;
+  onCancel?: () => void;
+  scope?: Scope;
+}) {
+  const { control, handleSubmit, formState, setError } = useForm<Values>({
     resolver: zodResolver(priceTableSchema),
     defaultValues: toValues(table),
   });
@@ -120,6 +140,10 @@ export function PriceTableForm({
   async function submit(v: Values) {
     setFormError(null);
     setSaved(false);
+    if (scope === "global" && v.mobilization_fee === "") {
+      setError("mobilization_fee", { message: `Informe a mobilização em ${HOME_CITY}` });
+      return;
+    }
     try {
       await onSave(toPayload(v));
       setSaved(true);
@@ -131,13 +155,23 @@ export function PriceTableForm({
   return (
     <form onSubmit={handleSubmit(submit)} className="max-w-2xl space-y-4" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Taxa de mobilização (R$)" error={errors.mobilization_fee?.message}>
-          <Controller
-            control={control}
-            name="mobilization_fee"
-            render={({ field }) => <DecimalInput value={field.value} onChange={field.onChange} />}
-          />
-        </Field>
+        <div>
+          <Field
+            label={scope === "global" ? `Mobilização em ${HOME_CITY} (R$)` : "Taxa de mobilização (R$)"}
+            error={errors.mobilization_fee?.message}
+          >
+            <Controller
+              control={control}
+              name="mobilization_fee"
+              render={({ field }) => <DecimalInput value={field.value} onChange={field.onChange} />}
+            />
+          </Field>
+          <p className="mt-1 text-sm text-stone-600">
+            {scope === "global"
+              ? "Em outras cidades a obra começa com mobilização a negociar."
+              : "Deixe em branco enquanto estiver a negociar."}
+          </p>
+        </div>
         <Field label="Valor mínimo (R$)" error={errors.minimum_amount?.message}>
           <Controller
             control={control}

@@ -1,6 +1,11 @@
 from tests.factories import make_customer, make_rig
 
+# padrão na cidade-sede: obra já nasce com a mobilização da tabela e pode ser iniciada
 ADDRESS = {
+    "zip_code": "38400000", "street": "Av. Rondon Pacheco", "number": "100",
+    "district": "Centro", "city": "Uberlândia", "state": "MG",
+}
+OTHER_CITY_ADDRESS = {
     "zip_code": "01001000", "street": "Rua B", "number": "10",
     "district": "Centro", "city": "Campinas", "state": "SP",
 }
@@ -42,6 +47,64 @@ async def test_create_job_snapshots_global_table(login_as):
     again = (await c.get(f"/api/jobs/{job['id']}")).json()
     by_d = {i["diameter_cm"]: i["price_per_m"] for i in again["prices"]["items"]}
     assert by_d[30] == "10.00"
+
+
+async def test_job_outside_home_city_has_mobilization_to_negotiate(login_as):
+    c = await login_as("office")
+    cid = await make_customer(c)
+    global_table = (await c.get("/api/price-table")).json()
+    job = await make_job(c, cid, address=OTHER_CITY_ADDRESS)
+    assert job["prices"]["mobilization_fee"] is None
+    assert job["prices"]["items"] == global_table["items"]
+
+
+async def test_home_city_matched_without_accent_or_by_ibge_code(login_as):
+    c = await login_as("office")
+    cid = await make_customer(c)
+    plain = await make_job(c, cid, address={**ADDRESS, "city": " uberlandia "})
+    assert plain["prices"]["mobilization_fee"] == "400.00"
+    other_state = await make_job(c, cid, address={**ADDRESS, "state": "SP"})
+    assert other_state["prices"]["mobilization_fee"] is None
+    by_code = await make_job(c, cid, address={**ADDRESS, "city": "Udia", "ibge_city_code": "3170206"})
+    assert by_code["prices"]["mobilization_fee"] == "400.00"
+
+
+async def test_cannot_start_job_until_mobilization_negotiated(login_user):
+    c, _ = await login_user("office@moura.test", "office")
+    _, op_id = await login_user("op@moura.test", "operator")
+    cid = await make_customer(c)
+    job = await make_job(c, cid, address=OTHER_CITY_ADDRESS)
+    await allocate(c, job["id"], [await make_rig(c)], [op_id])
+    url = f"/api/jobs/{job['id']}"
+
+    resp = await c.patch(url, json={"status": "in_progress"})
+    assert resp.status_code == 409
+    assert resp.json()["code"] == "mobilization_pending"
+
+    prices = {**job["prices"], "mobilization_fee": "850"}
+    assert (await c.put(f"{url}/prices", json=prices)).status_code == 200
+    resp = await c.patch(url, json={"status": "in_progress"})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "in_progress"
+
+
+async def test_negotiated_mobilization_set_and_cleared_on_job(login_as):
+    c = await login_as("office")
+    cid = await make_customer(c)
+    job = await make_job(c, cid, address=OTHER_CITY_ADDRESS)
+    table = {**job["prices"], "mobilization_fee": "1250,00"}
+    resp = await c.put(f"/api/jobs/{job['id']}/prices", json=table)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["prices"]["mobilization_fee"] == "1250.00"
+    resp = await c.put(f"/api/jobs/{job['id']}/prices", json={**table, "mobilization_fee": None})
+    assert resp.json()["prices"]["mobilization_fee"] is None
+
+
+async def test_global_table_requires_mobilization(login_as):
+    c = await login_as("office")
+    table = (await c.get("/api/price-table")).json()
+    resp = await c.put("/api/price-table", json={**table, "mobilization_fee": None})
+    assert resp.status_code == 422
 
 
 async def test_create_job_with_custom_prices(login_as):
@@ -226,7 +289,7 @@ async def test_search_by_name_and_customer(login_as):
     assert by_customer["total"] == 2
     item = by_customer["items"][0]
     assert item["customer_name"] == "Cliente Teste"
-    assert item["city"] == "Campinas"
+    assert item["city"] == "Uberlândia"
     assert (await c.get("/api/jobs", params={"q": "zzz"})).json()["total"] == 0
 
 

@@ -6,7 +6,7 @@ from moura_gestao.domain.pricing import PriceItem, PriceTable
 from moura_gestao.domain.users import Role
 from moura_gestao.infrastructure.repositories import SqlPriceTableRepository
 from moura_gestao.interfaces.http.deps import get_session, require_roles
-from moura_gestao.interfaces.http.schemas import PriceItemIO, PriceTableIO
+from moura_gestao.interfaces.http.schemas import GlobalPriceTableIO, PriceItemIO
 
 router = APIRouter(prefix="/api/price-table", tags=["price-table"])
 
@@ -15,8 +15,9 @@ def get_repo(session: AsyncSession = Depends(get_session)) -> SqlPriceTableRepos
     return SqlPriceTableRepository(session)
 
 
-def _out(t: PriceTable) -> PriceTableIO:
-    return PriceTableIO(
+def _out(t: PriceTable) -> GlobalPriceTableIO:
+    assert t.mobilization_fee is not None
+    return GlobalPriceTableIO(
         mobilization_fee=t.mobilization_fee,
         minimum_amount=t.minimum_amount,
         max_tabled_depth_m=t.max_tabled_depth_m,
@@ -25,7 +26,7 @@ def _out(t: PriceTable) -> PriceTableIO:
 
 
 @router.get(
-    "", response_model=PriceTableIO,
+    "", response_model=GlobalPriceTableIO,
     dependencies=[Depends(require_roles(Role.ADMIN, Role.OFFICE))],
 )
 async def get_price_table(repo=Depends(get_repo)):
@@ -33,10 +34,10 @@ async def get_price_table(repo=Depends(get_repo)):
 
 
 @router.put(
-    "", response_model=PriceTableIO,
+    "", response_model=GlobalPriceTableIO,
     dependencies=[Depends(require_roles(Role.ADMIN, Role.OFFICE))],
 )
-async def replace_price_table(body: PriceTableIO, repo=Depends(get_repo)):
+async def replace_price_table(body: GlobalPriceTableIO, repo=Depends(get_repo)):
     table = PriceTable(
         mobilization_fee=body.mobilization_fee,
         minimum_amount=body.minimum_amount,

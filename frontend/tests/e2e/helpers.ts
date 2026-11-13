@@ -82,10 +82,12 @@ export async function createRig(name = uniqueName("Rig"), maxDiameterCm = 80) {
   return { id, name };
 }
 
-export async function createJob(customerId: number, name = uniqueName("Obra")) {
+export async function createJob(
+  customerId: number, name = uniqueName("Obra"), address: Partial<typeof ADDRESS> = {},
+) {
   const api = await adminApi();
   const res = await api.post("/api/jobs", {
-    data: { name, customer_id: customerId, address: ADDRESS },
+    data: { name, customer_id: customerId, address: { ...ADDRESS, ...address } },
   });
   expect(res.status()).toBe(201);
   const { id } = (await res.json()) as { id: number };

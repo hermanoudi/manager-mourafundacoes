@@ -28,6 +28,39 @@ test("office edita a tabela de preços", async ({ page }) => {
   await noHorizontalScroll(page);
 });
 
+test("obra fora de Uberlândia só inicia depois de negociar a mobilização", async ({ page }) => {
+  const customer = await createCustomer();
+  const rig = await createRig();
+  const op = await createUser("operator", uniqueName("Operador"));
+  const job = await createJob(customer.id, uniqueName("Obra Araguari"), { city: "Araguari" });
+  await allocateJob(job.id, [rig.id], [op.id]);
+  await loginAs(page, "office");
+
+  await page.goto("/tabela-precos");
+  await expect(page.getByText("Mobilização (Uberlândia-MG)")).toBeVisible();
+  await expect(page.getByText("Fora de Uberlândia-MG, a mobilização é negociada em cada obra.")).toBeVisible();
+
+  await page.goto(`/obras/${job.id}`);
+  await page.getByRole("button", { name: "Iniciar obra" }).click();
+  await expect(page.getByText("Feche a negociação da mobilização antes de iniciar a obra")).toBeVisible();
+  await page.getByRole("button", { name: "Definir mobilização" }).click();
+
+  await expect(page.getByLabel("Taxa de mobilização (R$)")).toBeVisible();
+  await page.getByRole("button", { name: "Cancelar" }).click();
+  await expect(page.getByText("A negociar")).toBeVisible();
+  await page.getByRole("button", { name: "Editar preços" }).click();
+  await expect(page.getByLabel("Taxa de mobilização (R$)")).toHaveValue("");
+  await page.getByLabel("Taxa de mobilização (R$)").fill("850");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Tabela salva")).toBeVisible();
+  await expect(page.getByText("R$ 850,00")).toBeVisible();
+  await expect(page.getByText("A negociar")).toHaveCount(0);
+  await noHorizontalScroll(page);
+
+  await page.getByRole("button", { name: "Iniciar obra" }).click();
+  await expect(page.getByTestId("job-status")).toHaveText("Em execução");
+});
+
 test("office cria obra, aloca e inicia", async ({ page }) => {
   const customer = await createCustomer();
   const rig = await createRig();

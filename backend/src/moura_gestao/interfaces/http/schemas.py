@@ -241,7 +241,9 @@ class PriceItemIO(BaseModel):
 
 
 class PriceTableIO(BaseModel):
-    mobilization_fee: Money
+    """Tabela de uma obra: mobilização nula = a negociar."""
+
+    mobilization_fee: Money | None = None
     minimum_amount: Money | None = None
     max_tabled_depth_m: TabledDepth
     items: list[PriceItemIO]
@@ -251,6 +253,12 @@ class PriceTableIO(BaseModel):
     def _items(cls, v: list[PriceItemIO]) -> list[PriceItemIO]:
         ordered = validate_items([PriceItem(i.diameter_cm, i.price_per_m) for i in v])
         return [PriceItemIO(diameter_cm=i.diameter_cm, price_per_m=i.price_per_m) for i in ordered]
+
+
+class GlobalPriceTableIO(PriceTableIO):
+    """Tabela global: a mobilização (de Uberlândia-MG) é obrigatória."""
+
+    mobilization_fee: Money
 
 
 class JobIn(BaseModel):

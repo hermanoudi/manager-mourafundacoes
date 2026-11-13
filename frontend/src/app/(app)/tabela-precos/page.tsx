@@ -42,6 +42,7 @@ export default function TabelaPrecosPage() {
         <div className={`${panel} p-4`}>
           <PriceTableForm
             table={data}
+            scope="global"
             onCancel={() => setEditing(false)}
             onSave={async (t) => {
               const out = await api<PriceTableOut>("/api/price-table", {
@@ -54,7 +55,7 @@ export default function TabelaPrecosPage() {
           />
         </div>
       ) : (
-        <PriceTableView table={data} />
+        <PriceTableView table={data} scope="global" />
       )}
     </div>
   );
