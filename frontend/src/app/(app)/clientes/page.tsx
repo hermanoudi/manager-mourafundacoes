@@ -11,6 +11,7 @@ import { DataList } from "@/components/DataList";
 import { btnPrimary, PageHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatDocument } from "@/lib/documents";
+import { displayPhone } from "@/lib/phone";
 import { isForbidden } from "@/lib/errors";
 
 type Page = { items: CustomerOut[]; total: number; page: number; page_size: number };
@@ -47,7 +48,7 @@ export default function ClientesPage() {
           { key: "name", label: "Nome" },
           { key: "document", label: "CPF/CNPJ", render: (c) => formatDocument(c.document) },
           { key: "city", label: "Cidade", render: (c) => `${c.address.city}/${c.address.state}` },
-          { key: "phone", label: "Telefone", render: (c) => c.phone || "—" },
+          { key: "phone", label: "Telefone", render: (c) => displayPhone(c.phone) },
         ]}
       />
     </div>

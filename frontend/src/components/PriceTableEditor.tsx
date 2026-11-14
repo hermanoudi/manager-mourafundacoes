@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 
 import { messageFor } from "@/lib/errors";
-import { formatDecimalBR, toApiDecimal } from "@/lib/format";
+import { formatDecimalBR, formatMoneyInputBR, toApiDecimal, toApiMoney } from "@/lib/format";
 import { formatMoneyBR } from "@/lib/money";
 import { priceTableSchema, type PriceTableForm as Values } from "@/lib/schemas";
 
@@ -27,23 +27,23 @@ const HOME_CITY = "Uberlândia-MG";
 
 function toValues(t: PriceTableOut): Values {
   return {
-    mobilization_fee: t.mobilization_fee ? formatDecimalBR(t.mobilization_fee) : "",
-    minimum_amount: t.minimum_amount ? formatDecimalBR(t.minimum_amount) : "",
+    mobilization_fee: t.mobilization_fee ? formatMoneyInputBR(t.mobilization_fee) : "",
+    minimum_amount: t.minimum_amount ? formatMoneyInputBR(t.minimum_amount) : "",
     max_tabled_depth_m: formatDecimalBR(t.max_tabled_depth_m),
     items: t.items.map((i) => ({
-      diameter_cm: String(i.diameter_cm), price_per_m: formatDecimalBR(i.price_per_m),
+      diameter_cm: String(i.diameter_cm), price_per_m: formatMoneyInputBR(i.price_per_m),
     })),
   };
 }
 
 function toPayload(v: Values): PriceTableOut {
   return {
-    mobilization_fee: v.mobilization_fee === "" ? null : toApiDecimal(v.mobilization_fee),
-    minimum_amount: v.minimum_amount === "" ? null : toApiDecimal(v.minimum_amount),
+    mobilization_fee: v.mobilization_fee === "" ? null : toApiMoney(v.mobilization_fee),
+    minimum_amount: v.minimum_amount === "" ? null : toApiMoney(v.minimum_amount),
     max_tabled_depth_m: toApiDecimal(v.max_tabled_depth_m),
     items: [...v.items]
       .sort((a, b) => Number(a.diameter_cm) - Number(b.diameter_cm))
-      .map((i) => ({ diameter_cm: Number(i.diameter_cm), price_per_m: toApiDecimal(i.price_per_m) })),
+      .map((i) => ({ diameter_cm: Number(i.diameter_cm), price_per_m: toApiMoney(i.price_per_m) })),
   };
 }
 
@@ -163,7 +163,7 @@ export function PriceTableForm({
             <Controller
               control={control}
               name="mobilization_fee"
-              render={({ field }) => <DecimalInput value={field.value} onChange={field.onChange} />}
+              render={({ field }) => <DecimalInput grouping value={field.value} onChange={field.onChange} />}
             />
           </Field>
           <p className="mt-1 text-sm text-stone-600">
@@ -176,7 +176,7 @@ export function PriceTableForm({
           <Controller
             control={control}
             name="minimum_amount"
-            render={({ field }) => <DecimalInput value={field.value} onChange={field.onChange} />}
+            render={({ field }) => <DecimalInput grouping value={field.value} onChange={field.onChange} />}
           />
         </Field>
       </div>
@@ -199,6 +199,7 @@ export function PriceTableForm({
               name={`items.${i}.price_per_m`}
               render={({ field }) => (
                 <DecimalInput
+                  grouping
                   aria-label={`Preço por metro, ${f.diameter_cm} cm`}
                   value={field.value}
                   onChange={field.onChange}

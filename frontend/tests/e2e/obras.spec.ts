@@ -50,11 +50,15 @@ test("obra fora de Uberlândia só inicia depois de negociar a mobilização", a
   await expect(page.getByText("A negociar")).toBeVisible();
   await page.getByRole("button", { name: "Editar preços" }).click();
   await expect(page.getByLabel("Taxa de mobilização (R$)")).toHaveValue("");
-  await page.getByLabel("Taxa de mobilização (R$)").fill("850");
+  // ponto é milhar em dinheiro: "1.500" são mil e quinhentos reais, não 1,5
+  await page.getByLabel("Taxa de mobilização (R$)").fill("1.500");
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Tabela salva")).toBeVisible();
-  await expect(page.getByText("R$ 850,00")).toBeVisible();
+  await expect(page.getByText("R$ 1.500,00")).toBeVisible();
   await expect(page.getByText("A negociar")).toHaveCount(0);
+  await page.getByRole("button", { name: "Editar preços" }).click();
+  await expect(page.getByLabel("Taxa de mobilização (R$)")).toHaveValue("1.500,00");
+  await page.getByRole("button", { name: "Cancelar" }).click();
   await noHorizontalScroll(page);
 
   await page.getByRole("button", { name: "Iniciar obra" }).click();

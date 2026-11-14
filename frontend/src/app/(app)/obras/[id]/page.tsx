@@ -16,6 +16,7 @@ import {
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { formatDateBR, formatDateTimeBR } from "@/lib/dates";
+import { formatDecimalBR } from "@/lib/format";
 import { listDrafts } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
 import {
@@ -477,7 +478,7 @@ export default function ObraPage() {
                       <li key={r.id} className="px-4 py-3">
                         <span className="block font-medium">{r.name}</span>
                         <span className="block text-stone-600 tabular-nums">
-                          até {r.max_diameter_cm} cm · {r.max_depth_m.replace(".", ",")} m
+                          até {r.max_diameter_cm} cm · {formatDecimalBR(r.max_depth_m)} m
                         </span>
                       </li>
                     ))}

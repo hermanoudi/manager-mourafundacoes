@@ -7,6 +7,7 @@ import { Controller, FormProvider, useForm } from "react-hook-form";
 import { api } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { messageFor } from "@/lib/errors";
+import { displayPhone, formatPhone, normalizePhone } from "@/lib/phone";
 import { customerSchema, nullIfEmpty, type CustomerForm as Values } from "@/lib/schemas";
 
 import { AddressFields, addressPayload, addressToValues, EMPTY_ADDRESS, type AddressOut } from "./AddressFields";
@@ -33,7 +34,7 @@ const EMPTY: Values = {
 export function toValues(c: CustomerOut): Values {
   return {
     document: c.document, name: c.name, trade_name: c.trade_name ?? "", email: c.email ?? "",
-    phone: c.phone ?? "", contact_name: c.contact_name ?? "", notes: c.notes ?? "",
+    phone: c.phone ? displayPhone(c.phone) : "", contact_name: c.contact_name ?? "", notes: c.notes ?? "",
     ...addressToValues(c.address),
   };
 }
@@ -41,7 +42,7 @@ export function toValues(c: CustomerOut): Values {
 function toPayload(v: Values) {
   return {
     document: v.document, name: v.name.trim(), trade_name: nullIfEmpty(v.trade_name),
-    email: nullIfEmpty(v.email), phone: nullIfEmpty(v.phone),
+    email: nullIfEmpty(v.email), phone: nullIfEmpty(normalizePhone(v.phone)),
     contact_name: nullIfEmpty(v.contact_name), notes: nullIfEmpty(v.notes),
     address: addressPayload(v),
   };
@@ -105,8 +106,25 @@ export function CustomerForm({
         <Field label="E-mail">
           <input className={inputClass} type="email" inputMode="email" {...register("email")} />
         </Field>
-        <Field label="Telefone">
-          <input className={inputClass} type="tel" {...register("phone")} />
+        <Field label="Telefone" error={errors.phone?.message}>
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field }) => (
+              <input
+                className={inputClass}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="(34) 99999-0000"
+                value={field.value}
+                onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                onBlur={field.onBlur}
+                name={field.name}
+                ref={field.ref}
+              />
+            )}
+          />
         </Field>
       </div>
       <Field label="Contato">

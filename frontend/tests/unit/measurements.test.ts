@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatHundredthsGrouped, sameContent, sumHundredths, type MeasurementIn, type MeasurementOut,
+  formatHundredthsGrouped, formatMeters, sameContent, sumHundredths, type MeasurementIn, type MeasurementOut,
 } from "@/lib/measurements";
 
 describe("sumHundredths / formatHundredthsGrouped", () => {
@@ -12,6 +12,10 @@ describe("sumHundredths / formatHundredthsGrouped", () => {
   it("formata com milhar e duas casas", () => {
     expect(formatHundredthsGrouped(123456789)).toBe("1.234.567,89");
     expect(formatHundredthsGrouped(5)).toBe("0,05");
+  });
+  it("formatMeters agrupa milhar como o resto da interface", () => {
+    expect(formatMeters("1234.5")).toBe("1.234,50 m");
+    expect(formatMeters("20.5")).toBe("20,50 m");
   });
 });
 

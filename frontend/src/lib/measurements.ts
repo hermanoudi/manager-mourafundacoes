@@ -105,7 +105,7 @@ export function formatHundredthsGrouped(h: number): string {
 /** Valor da API ("20.5"/"20.50") → "20,50 m". */
 export function formatMeters(apiValue: string): string {
   const h = toHundredths(apiValue);
-  return `${h === null ? apiValue : formatHundredths(h)} m`;
+  return `${h === null ? apiValue : formatHundredthsGrouped(h)} m`;
 }
 
 type Comparable = { pile_code: string; diameter_cm: number | null; depth_m: string };

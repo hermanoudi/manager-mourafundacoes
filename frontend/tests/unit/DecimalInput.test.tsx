@@ -5,11 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DecimalInput } from "@/components/DecimalInput";
 
-function Harness({ spy }: { spy: (v: string) => void }) {
+function Harness({ spy, grouping = false }: { spy: (v: string) => void; grouping?: boolean }) {
   const [value, setValue] = useState("");
   return (
     <DecimalInput
       aria-label="Profundidade"
+      grouping={grouping}
       value={value}
       onChange={(v) => {
         spy(v);
@@ -40,5 +41,13 @@ describe("DecimalInput", () => {
     render(<Harness spy={spy} />);
     await userEvent.type(screen.getByLabelText("Profundidade"), "2.5");
     expect(screen.getByLabelText("Profundidade")).toHaveValue("2,5");
+  });
+  it("com grouping mantém o ponto de milhar e uma só vírgula", async () => {
+    const spy = vi.fn();
+    render(<Harness spy={spy} grouping />);
+    const input = screen.getByLabelText("Profundidade");
+    await userEvent.type(input, "1.500,0,0");
+    expect(input).toHaveValue("1.500,00");
+    expect(spy).toHaveBeenLastCalledWith("1.500,00");
   });
 });

@@ -40,7 +40,11 @@ test("office cadastra, bloqueia duplicado, busca e edita", async ({ page }) => {
   await page.getByLabel("Buscar").fill(name);
   await page.getByText(name).locator("visible=true").click();
   await expect(page).toHaveURL(/\/clientes\/\d+$/);
-  await page.getByLabel("Telefone").fill("(34) 99999-0000");
+  await page.getByLabel("Telefone").fill("3499");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Telefone com DDD: 10 ou 11 dígitos")).toBeVisible();
+  await page.getByLabel("Telefone").fill("34999990000");
+  await expect(page.getByLabel("Telefone")).toHaveValue("(34) 99999-0000");
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Salvo")).toBeVisible();
   await page.reload();
