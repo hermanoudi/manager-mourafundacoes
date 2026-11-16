@@ -18,7 +18,12 @@ from moura_gestao.domain.customers import UFS
 from moura_gestao.domain.documents import document_kind
 from moura_gestao.domain.drill_rigs import RigStatus
 from moura_gestao.domain.jobs import JobStatus
-from moura_gestao.domain.measurements import MeasurementStatus, normalize_pile_code
+from moura_gestao.domain.measurements import (
+    QUANTITY_MAX,
+    QUANTITY_MIN,
+    MeasurementStatus,
+    normalize_pile_code,
+)
 from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure, quantize_money
 from moura_gestao.domain.pricing import PriceItem, validate_items
 from moura_gestao.domain.users import Role
@@ -325,12 +330,20 @@ class JobSummaryOut(BaseModel):
     start_date: date | None
 
 
-PileCode = Annotated[str, AfterValidator(normalize_pile_code)]
+def _optional_pile_code(raw: str | None) -> str | None:
+    """Código da estaca só existe nas medições antigas; vazio = sem código."""
+    if raw is None or not raw.strip():
+        return None
+    return normalize_pile_code(raw)
+
+
+OptionalPileCode = Annotated[str | None, AfterValidator(_optional_pile_code)]
 Measure = Annotated[Decimal, _to_str]
 
 
 class MeasurementLineIO(BaseModel):
-    pile_code: PileCode
+    quantity: int = Field(ge=QUANTITY_MIN, le=QUANTITY_MAX)
+    pile_code: OptionalPileCode = None
     diameter_cm: int = Field(ge=20, le=120)
     depth_m: Annotated[Decimal, BeforeValidator(_depth), _to_str]
 
@@ -381,6 +394,7 @@ class MeasurementSummaryOut(BaseModel):
     work_date: date
     status: MeasurementStatus
     total_m: Measure
+    total_piles: int
     totals_by_diameter: list[DiameterTotalOut]
     uncontracted_diameters: list[int]
     created_by: IdName

@@ -15,8 +15,6 @@ from moura_gestao.domain.measurements import (
     Measurement,
     MeasurementLine,
     MeasurementStatus,
-    duplicate_piles,
-    pile_key,
 )
 from moura_gestao.domain.users import Role, User
 
@@ -41,30 +39,19 @@ async def _validate(
         raise Conflict("rig_not_allocated", "A perfuratriz não está alocada nesta obra")
     if m.work_date > today_sp(now):
         raise DomainError("A data da medição não pode ser futura", code="future_date")
-    if dups := duplicate_piles(m.lines):
-        raise DomainError(
-            f"Estaca repetida na medição: {', '.join(dups)}", code="validation_error"
-        )
-    for line in m.lines:
+    for n, line in enumerate(m.lines, start=1):
         if not MIN_DIAMETER_CM <= line.diameter_cm <= rig.max_diameter_cm:
             raise DomainError(
-                f"Estaca {line.pile_code}: diâmetro {line.diameter_cm} cm fora do limite da "
+                f"Linha {n}: diâmetro {line.diameter_cm} cm fora do limite da "
                 f"perfuratriz ({MIN_DIAMETER_CM}–{rig.max_diameter_cm} cm)",
                 code="line_exceeds_rig",
             )
         if line.depth_m > rig.max_depth_m:
             raise DomainError(
-                f"Estaca {line.pile_code}: profundidade {line.depth_m} m acima do limite da "
+                f"Linha {n}: profundidade {line.depth_m} m acima do limite da "
                 f"perfuratriz ({rig.max_depth_m} m)",
                 code="line_exceeds_rig",
             )
-    taken = await measurements.pile_keys_in_job(m.job_id, exclude_id=m.id)
-    collisions = [taken[k] for k in dict.fromkeys(pile_key(ln.pile_code) for ln in m.lines)
-                  if k in taken]
-    if collisions:
-        raise Conflict(
-            "duplicate_pile", f"Estacas já lançadas nesta obra: {', '.join(collisions)}"
-        )
 
 
 def _mark_submitted(m: Measurement, now: datetime) -> None:

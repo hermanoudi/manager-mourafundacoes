@@ -13,7 +13,7 @@ STATUS = {
         (
             "invalid_status_transition", "job_not_ready", "mobilization_pending", "job_locked", "job_not_in_progress",
             "rig_not_allocated", "operator_not_allocated", "rig_unavailable", "invalid_operator", "measurement_locked",
-            "diameter_not_contracted", "pending_measurements", "duplicate_pile",
+            "diameter_not_contracted", "pending_measurements",
             "duplicate_client_key",
         ),
         409,

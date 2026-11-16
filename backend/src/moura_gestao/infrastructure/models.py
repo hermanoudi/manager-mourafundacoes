@@ -238,6 +238,7 @@ class MeasurementLineModel(Base):
     __table_args__ = (
         CheckConstraint("diameter_cm BETWEEN 20 AND 120", name="diameter_range"),
         CheckConstraint("depth_m > 0", name="depth_positive"),
+        CheckConstraint("quantity BETWEEN 1 AND 999", name="quantity_range"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -245,7 +246,8 @@ class MeasurementLineModel(Base):
         ForeignKey("measurements.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int]
-    pile_code: Mapped[str] = mapped_column(String(20))
+    quantity: Mapped[int]
+    pile_code: Mapped[str | None] = mapped_column(String(20))
     diameter_cm: Mapped[int]
     depth_m: Mapped[Decimal] = mapped_column(Numeric(10, 2))
 

@@ -15,7 +15,6 @@ from moura_gestao.domain.measurements import (
     Measurement,
     MeasurementLine,
     MeasurementStatus,
-    pile_key,
 )
 from moura_gestao.domain.photos import Photo
 from moura_gestao.domain.pricing import PriceItem, PriceTable
@@ -467,8 +466,8 @@ class SqlMeasurementRepository:
     def _add_lines(self, measurement_id: int, lines: list[MeasurementLine]) -> None:
         self._s.add_all(
             MeasurementLineModel(
-                measurement_id=measurement_id, position=pos, pile_code=ln.pile_code,
-                diameter_cm=ln.diameter_cm, depth_m=ln.depth_m,
+                measurement_id=measurement_id, position=pos, quantity=ln.quantity,
+                pile_code=ln.pile_code, diameter_cm=ln.diameter_cm, depth_m=ln.depth_m,
             )
             for pos, ln in enumerate(lines)
         )
@@ -492,7 +491,7 @@ class SqlMeasurementRepository:
         )
         for ln in line_rows.scalars():
             lines[ln.measurement_id].append(
-                MeasurementLine(ln.pile_code, ln.diameter_cm, ln.depth_m)
+                MeasurementLine(ln.quantity, ln.diameter_cm, ln.depth_m, ln.pile_code)
             )
         contracted: dict[int, list[int]] = defaultdict(list)
         price_rows = await self._s.execute(
@@ -607,19 +606,6 @@ class SqlMeasurementRepository:
             items=await self._hydrate(list(rows)), total=total, page=params.page,
             page_size=params.page_size,
         )
-
-    async def pile_keys_in_job(self, job_id: int, exclude_id: int | None = None) -> dict[str, str]:
-        stmt = (
-            select(MeasurementLineModel.pile_code)
-            .join(MeasurementModel, MeasurementModel.id == MeasurementLineModel.measurement_id)
-            .where(
-                MeasurementModel.job_id == job_id,
-                MeasurementModel.status != MeasurementStatus.REJECTED.value,
-            )
-        )
-        if exclude_id is not None:
-            stmt = stmt.where(MeasurementModel.id != exclude_id)
-        return {pile_key(code): code for code in (await self._s.execute(stmt)).scalars()}
 
     async def count_by_status(self, job_id: int, status: MeasurementStatus) -> int:
         stmt = select(func.count()).select_from(MeasurementModel).where(

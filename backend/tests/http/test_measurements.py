@@ -49,13 +49,17 @@ def body(ctx: Ctx, lines=None, **over) -> dict:
     return {
         "client_key": str(uuid.uuid4()), "job_id": ctx.job_id, "rig_id": ctx.rig_id,
         "work_date": today(),
-        "lines": lines or [{"pile_code": "E-1", "diameter_cm": 30, "depth_m": "8,5"}],
+        "lines": lines or [{"quantity": 1, "diameter_cm": 30, "depth_m": "8,5"}],
         **over,
     }
 
 
-def line(code: str, diameter: int = 30, depth: str = "10") -> dict:
-    return {"pile_code": code, "diameter_cm": diameter, "depth_m": depth}
+def line(code: str | None = None, diameter: int = 30, depth: str = "10", quantity: int = 1) -> dict:
+    """Grupo de estacas; `code` só nos cenários de medição antiga (estaca identificada)."""
+    out: dict = {"quantity": quantity, "diameter_cm": diameter, "depth_m": depth}
+    if code is not None:
+        out["pile_code"] = code
+    return out
 
 
 async def create(client, payload: dict, status: int = 201) -> dict:
@@ -66,11 +70,14 @@ async def create(client, payload: dict, status: int = 201) -> dict:
 
 async def test_operator_creates_draft_with_comma_depth(ctx):
     m = await create(
-        ctx.op_a, body(ctx, [{"pile_code": "e-1", "diameter_cm": 30, "depth_m": "8,5"}])
+        ctx.op_a, body(ctx, [{"quantity": 1, "diameter_cm": 30, "depth_m": "8,5"}])
     )
     assert m["status"] == "draft"
-    assert m["lines"] == [{"pile_code": "E-1", "diameter_cm": 30, "depth_m": "8.50"}]
+    assert m["lines"] == [
+        {"quantity": 1, "pile_code": None, "diameter_cm": 30, "depth_m": "8.50"}
+    ]
     assert m["total_m"] == "8.50"
+    assert m["total_piles"] == 1
     assert m["totals_by_diameter"] == [{"diameter_cm": 30, "piles": 1, "meters": "8.50"}]
     assert m["uncontracted_diameters"] == []
     assert m["job"]["id"] == ctx.job_id
@@ -128,16 +135,6 @@ async def test_concurrent_replays_do_not_double_lines_or_unsubmit(ctx):
     assert listed["total"] == 1
 
 
-async def test_concurrent_duplicate_pile_only_one_wins(ctx):
-    r1, r2 = await asyncio.gather(
-        ctx.op_a.post("/api/measurements", json=body(ctx, [line("E-50")])),
-        ctx.op_c.post("/api/measurements", json=body(ctx, [line("e50")])),
-    )
-    assert sorted([r1.status_code, r2.status_code]) == [201, 409], (r1.text, r2.text)
-    loser = r1 if r1.status_code == 409 else r2
-    assert loser.json()["code"] == "duplicate_pile"
-
-
 async def test_upsert_draft_then_submit_same_key(ctx):
     payload = body(ctx, [line("E-1")])
     first = await create(ctx.op_a, payload, 201)
@@ -178,30 +175,47 @@ async def test_author_deletes_draft(ctx):
     assert (await ctx.op_a.get(url)).status_code == 404
 
 
-async def test_duplicate_pile_across_measurements(ctx):
-    m1 = await create(ctx.op_a, body(ctx, [line("E-12"), line("E-13")], submit=True))
-    resp = await ctx.op_a.post(
-        "/api/measurements", json=body(ctx, [line("e12"), line("E 13"), line("E-14")])
-    )
-    assert resp.status_code == 409
-    assert resp.json()["code"] == "duplicate_pile"
-    assert "E-12" in resp.json()["detail"] and "E-13" in resp.json()["detail"]
+async def test_create_grouped_lines(ctx):
+    m = await create(ctx.op_a, body(ctx, [line(quantity=30, depth="8"), line(None, 40, "10", 10)]))
+    assert m["total_m"] == "340.00"
+    assert m["total_piles"] == 40
+    assert m["totals_by_diameter"] == [
+        {"diameter_cm": 30, "piles": 30, "meters": "240.00"},
+        {"diameter_cm": 40, "piles": 10, "meters": "100.00"},
+    ]
+    assert [ln["pile_code"] for ln in m["lines"]] == [None, None]
+    assert [ln["quantity"] for ln in m["lines"]] == [30, 10]
+    listed = (await ctx.office.get("/api/measurements", params={"job_id": ctx.job_id})).json()
+    assert listed["items"][0]["total_piles"] == 40
 
-    resp = await ctx.office.post(
-        f"/api/measurements/{m1['id']}/reject", json={"reason": "Estacas trocadas"}
-    )
+
+async def test_quantity_out_of_range_is_422(ctx):
+    for q in (0, 1000):
+        resp = await ctx.op_a.post("/api/measurements", json=body(ctx, [line(quantity=q)]))
+        assert resp.status_code == 422, q
+        assert resp.json()["code"] == "validation_error"
+
+
+async def test_same_group_twice_and_across_measurements_is_allowed(ctx):
+    await create(ctx.op_a, body(ctx, [line(quantity=5), line(quantity=5)], submit=True))
+    m = await create(ctx.op_c, body(ctx, [line(quantity=5)]))
+    assert m["total_piles"] == 5
+
+
+async def test_legacy_pile_code_round_trips(ctx):
+    m = await create(ctx.op_a, body(ctx, [line("e-7"), line("  ")], submit=True))
+    assert [ln["pile_code"] for ln in m["lines"]] == ["E-7", None]
+    url = f"/api/measurements/{m['id']}"
+    resp = await ctx.office.post(f"{url}/reject", json={"reason": "Conferir"})
     assert resp.status_code == 200
-    await create(ctx.op_a, body(ctx, [line("e12")]))
-
-
-async def test_duplicate_pile_inside_same_measurement_422(ctx):
-    resp = await ctx.op_a.post("/api/measurements", json=body(ctx, [line("E-1"), line("e1")]))
-    assert resp.status_code == 422
-    assert resp.json()["code"] == "validation_error"
+    resp = await ctx.op_a.patch(url, json={"lines": m["lines"]})
+    assert resp.status_code == 200, resp.text
+    assert [ln["pile_code"] for ln in resp.json()["lines"]] == ["E-7", None]
+    assert resp.json()["total_piles"] == 2
 
 
 async def test_invalid_lines_422(ctx):
-    bad_lines = ([], [line("")], [line("E-1", depth="0")], [line("E-1", 10)], [line("E" * 21)])
+    bad_lines = ([], [line(quantity=0)], [line(depth="0")], [line(diameter=10)], [line("E" * 21)])
     for bad in bad_lines:
         resp = await ctx.op_a.post("/api/measurements", json={**body(ctx), "lines": bad})
         assert resp.status_code == 422, bad
@@ -209,12 +223,12 @@ async def test_invalid_lines_422(ctx):
 
 
 async def test_line_exceeds_rig_limits_422(ctx):
-    for bad in (line("E-7", 90), line("E-7", 30, "22,5"), line("E-7", 20)):
-        resp = await ctx.op_a.post("/api/measurements", json=body(ctx, [bad]))
+    for bad in (line(None, 90), line(None, 30, "22,5"), line(None, 20)):
+        resp = await ctx.op_a.post("/api/measurements", json=body(ctx, [line(), bad]))
         assert resp.status_code == 422, bad
         assert resp.json()["code"] == "line_exceeds_rig"
-        assert "E-7" in resp.json()["detail"]
-    await create(ctx.op_a, body(ctx, [line("E-7", 80, "22")]))
+        assert resp.json()["detail"].startswith("Linha 2:")
+    await create(ctx.op_a, body(ctx, [line(None, 80, "22")]))
 
 
 async def test_rig_not_allocated_409(ctx):

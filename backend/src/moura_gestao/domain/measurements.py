@@ -1,4 +1,3 @@
-import re
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -10,6 +9,7 @@ from moura_gestao.domain.numbers import quantize_measure
 
 PILE_CODE_MAX = 20
 MIN_DIAMETER_CM = 25
+QUANTITY_MIN, QUANTITY_MAX = 1, 999
 
 
 class MeasurementStatus(StrEnum):
@@ -24,9 +24,15 @@ EDITABLE_STATUSES = frozenset({MeasurementStatus.DRAFT, MeasurementStatus.REJECT
 
 @dataclass(frozen=True)
 class MeasurementLine:
-    pile_code: str
+    """Grupo de estacas iguais: `quantity` furos com o mesmo diâmetro e profundidade.
+
+    `pile_code` só existe nas medições antigas (uma estaca identificada por linha).
+    """
+
+    quantity: int
     diameter_cm: int
     depth_m: Decimal
+    pile_code: str | None = None
 
 
 def normalize_pile_code(raw: str) -> str:
@@ -38,32 +44,20 @@ def normalize_pile_code(raw: str) -> str:
     return code
 
 
-def pile_key(code: str) -> str:
-    """Chave de comparação da estaca: só letras e dígitos, maiúsculos ("E-12" == "e 12")."""
-    return re.sub(r"[^A-Z0-9]", "", code.upper())
-
-
-def duplicate_piles(lines: Iterable[MeasurementLine]) -> list[str]:
-    seen: set[str] = set()
-    dups: list[str] = []
-    for line in lines:
-        key = pile_key(line.pile_code)
-        if key in seen:
-            dups.append(line.pile_code)
-        seen.add(key)
-    return dups
-
-
 def totals_by_diameter(lines: Iterable[MeasurementLine]) -> list[tuple[int, int, Decimal]]:
     acc: dict[int, tuple[int, Decimal]] = {}
     for line in lines:
         piles, meters = acc.get(line.diameter_cm, (0, Decimal(0)))
-        acc[line.diameter_cm] = (piles + 1, meters + line.depth_m)
+        acc[line.diameter_cm] = (piles + line.quantity, meters + line.quantity * line.depth_m)
     return [(d, p, quantize_measure(m)) for d, (p, m) in sorted(acc.items())]
 
 
 def total_meters(lines: Iterable[MeasurementLine]) -> Decimal:
-    return quantize_measure(sum((line.depth_m for line in lines), Decimal(0)))
+    return quantize_measure(sum((line.quantity * line.depth_m for line in lines), Decimal(0)))
+
+
+def total_piles(lines: Iterable[MeasurementLine]) -> int:
+    return sum(line.quantity for line in lines)
 
 
 @dataclass
@@ -101,6 +95,10 @@ class Measurement:
     @property
     def total_m(self) -> Decimal:
         return total_meters(self.lines)
+
+    @property
+    def total_piles(self) -> int:
+        return total_piles(self.lines)
 
     @property
     def totals_by_diameter(self) -> list[tuple[int, int, Decimal]]:

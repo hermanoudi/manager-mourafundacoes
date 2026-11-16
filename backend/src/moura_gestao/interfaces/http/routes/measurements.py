@@ -47,7 +47,7 @@ def _now() -> datetime:
 
 
 def _lines(items: list[MeasurementLineIO]) -> list[MeasurementLine]:
-    return [MeasurementLine(i.pile_code, i.diameter_cm, i.depth_m) for i in items]
+    return [MeasurementLine(i.quantity, i.diameter_cm, i.depth_m, i.pile_code) for i in items]
 
 
 def _summary_fields(m: Measurement) -> dict[str, Any]:
@@ -57,6 +57,7 @@ def _summary_fields(m: Measurement) -> dict[str, Any]:
         "job": IdName(id=m.job_id, name=m.job_name),
         "rig": IdName(id=m.rig_id, name=m.rig_name),
         "work_date": m.work_date, "status": m.status, "total_m": m.total_m,
+        "total_piles": m.total_piles,
         "totals_by_diameter": [
             DiameterTotalOut(diameter_cm=d, piles=p, meters=meters)
             for d, p, meters in m.totals_by_diameter
@@ -79,7 +80,10 @@ def _out(m: Measurement) -> MeasurementOut:
     return MeasurementOut(
         **_summary_fields(m),
         lines=[
-            MeasurementLineIO(pile_code=ln.pile_code, diameter_cm=ln.diameter_cm, depth_m=ln.depth_m)
+            MeasurementLineIO(
+                quantity=ln.quantity, pile_code=ln.pile_code, diameter_cm=ln.diameter_cm,
+                depth_m=ln.depth_m,
+            )
             for ln in m.lines
         ],
     )
