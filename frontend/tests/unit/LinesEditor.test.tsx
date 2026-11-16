@@ -45,6 +45,12 @@ describe("LinesEditor", () => {
     expect(row(2).getByLabelText("Qtd")).toHaveValue("");
   });
 
+  it("grupo de medição antiga mostra o código da estaca no cartão", () => {
+    render(<Harness initial={[{ ...line("1", "8"), pile_code: "E-12" }, line("3", "8")]} />);
+    expect(row(1).getByText("Estaca E-12")).toBeInTheDocument();
+    expect(row(2).queryByText(/^Estaca /)).toBeNull();
+  });
+
   it("linha da foto com erro fica destacada até ser editada", async () => {
     const read = { ...line("1", "", "40"), photo_error: "Profundidade não reconhecida (ilegível)" };
     render(<Harness initial={[line("1", "8"), read]} />);

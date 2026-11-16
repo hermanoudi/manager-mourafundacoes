@@ -164,7 +164,12 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                 }`}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-stone-700">Grupo {n}</span>
+                  <span className="text-sm font-medium text-stone-700">
+                    Grupo {n}
+                    {line.pile_code && (
+                      <span className="ml-2 font-normal text-stone-500">{`Estaca ${line.pile_code}`}</span>
+                    )}
+                  </span>
                   {lines.length > 1 && (
                     <button
                       type="button"
