@@ -20,7 +20,7 @@ import { messageFor } from "@/lib/errors";
 import { clearSentFlash, peekSentFlash } from "@/lib/flash";
 import { formatDecimalBR } from "@/lib/format";
 import {
-  formatHundredthsGrouped, formatMeters, pilesLabel, sameContent, sumHundredths, type MeasurementOut,
+  formatHundredthsGrouped, formatMeters, pilesLabel, sameContent, sumHundredths, toHundredths, type MeasurementOut,
 } from "@/lib/measurements";
 
 const BTN = "btn-label min-h-11 rounded-lg px-5 disabled:opacity-60";
@@ -87,6 +87,9 @@ export default function MedicaoPage() {
   // Enviada pelo admin, a medição já sai aprovada (de qualquer autor).
   const sendLabel = isAdmin ? "Lançar e aprovar" : m.status === "rejected" ? "Reenviar" : "Enviar";
   const uncontracted = new Set(m.uncontracted_diameters);
+  // Código da estaca só existe em medição antiga; a coluna aparece só nela.
+  const hasCodes = m.lines.some((l) => l.pile_code);
+  const cols = hasCodes ? 5 : 4;
 
   async function act(path: string, body?: unknown) {
     setBusy(true);
@@ -191,7 +194,7 @@ export default function MedicaoPage() {
         actions={actions}
       >
         <KpiGrid>
-          <Kpi label="Estacas" value={m.lines.length} />
+          <Kpi label="Estacas" value={m.total_piles} />
           <Kpi label="Total" value={formatHundredthsGrouped(sumHundredths([m.total_m]))} unit="m" />
         </KpiGrid>
       </EntityHeader>
@@ -247,22 +250,28 @@ export default function MedicaoPage() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-brand">
                 <tr>
-                  <th scope="col" className="eyebrow px-4 pb-2 pt-3.5 ">Estaca</th>
+                  {hasCodes && <th scope="col" className="eyebrow px-4 pb-2 pt-3.5 ">Estaca</th>}
+                  <th scope="col" className="eyebrow px-4 pb-2 pt-3.5 text-right ">Qtd</th>
                   <th scope="col" className="eyebrow px-4 pb-2 pt-3.5 ">Diâmetro</th>
                   <th scope="col" className="eyebrow px-4 pb-2 pt-3.5 text-right ">Profundidade</th>
+                  <th scope="col" className="eyebrow px-4 pb-2 pt-3.5 text-right ">Metros</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-tint/70">
-                {m.lines.map((l) => {
+                {m.lines.map((l, i) => {
                   const off = uncontracted.has(l.diameter_cm);
                   return (
-                    <tr key={l.pile_code} className={off ? "bg-amber-50" : undefined}
+                    <tr key={i} className={off ? "bg-amber-50" : undefined}
                       data-uncontracted={off || undefined}>
-                      <td className="break-all px-4 py-2.5 font-medium">{l.pile_code}</td>
+                      {hasCodes && <td className="break-all px-4 py-2.5 font-medium">{l.pile_code ?? "—"}</td>}
+                      <td className="px-4 py-2.5 text-right font-medium tabular-nums">{l.quantity}</td>
                       <td className="px-4 py-2.5 tabular-nums">
                         {l.diameter_cm} cm{off && <span className="block text-xs text-amber-800">fora da tabela</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{formatDecimalBR(l.depth_m)} m</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {formatHundredthsGrouped(l.quantity * (toHundredths(l.depth_m) ?? 0))} m
+                      </td>
                     </tr>
                   );
                 })}
@@ -270,16 +279,16 @@ export default function MedicaoPage() {
               <tfoot className="border-t-2 border-secondary-dark text-sm">
                 {m.totals_by_diameter.map((t) => (
                   <tr key={t.diameter_cm}>
-                    <th scope="row" colSpan={2} className="px-4 py-1.5 text-left font-normal text-stone-700">
+                    <th scope="row" colSpan={cols - 1} className="px-4 py-1.5 text-left font-normal text-stone-700">
                       {`Ø ${t.diameter_cm} cm · ${pilesLabel(t.piles)}`}
                     </th>
                     <td className="px-4 py-1.5 text-right tabular-nums">{formatMeters(t.meters)}</td>
                   </tr>
                 ))}
                 <tr className="border-t">
-                  <td colSpan={3} className="px-4 py-2.5">
+                  <td colSpan={cols} className="px-4 py-2.5">
                     <p data-testid="measurement-total" className="flex justify-between gap-3 font-semibold tabular-nums">
-                      <span>Total: {pilesLabel(m.lines.length)}</span>
+                      <span>Total: {pilesLabel(m.total_piles)}</span>
                       <span>{formatMeters(m.total_m)}</span>
                     </p>
                   </td>

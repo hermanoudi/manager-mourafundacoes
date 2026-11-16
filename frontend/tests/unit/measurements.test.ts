@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatHundredthsGrouped, formatMeters, sameContent, sumHundredths, type MeasurementIn, type MeasurementOut,
+  formatHundredthsGrouped, formatMeters, pilesIn, sameContent, sumHundredths, type MeasurementIn, type MeasurementOut,
 } from "@/lib/measurements";
 
 describe("sumHundredths / formatHundredthsGrouped", () => {
@@ -118,5 +118,16 @@ describe("sameContent", () => {
   it("linha incompleta do rascunho nunca é igual", () => {
     const base = payload().lines;
     expect(sameContent(payload({ lines: [{ ...base[0], diameter_cm: null }, base[1]] }), out())).toBe(false);
+  });
+});
+
+describe("pilesIn", () => {
+  it("soma as quantidades; linha antiga sem quantidade vale 1; incompleta não conta", () => {
+    const lines = [
+      { quantity: 30, diameter_cm: 30, depth_m: "8" },
+      { quantity: null, diameter_cm: 30, depth_m: "" },
+      { pile_code: "E-1", diameter_cm: 30, depth_m: "8" },
+    ] as MeasurementIn["lines"];
+    expect(pilesIn(lines)).toBe(31);
   });
 });

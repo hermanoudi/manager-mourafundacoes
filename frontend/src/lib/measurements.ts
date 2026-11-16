@@ -138,4 +138,12 @@ export function editsDropped(payload: MeasurementIn, out: MeasurementOut): boole
   return (out.status === "submitted" || out.status === "approved") && !sameContent(payload, out);
 }
 
+/** Estacas de um rascunho: soma das quantidades válidas (linha antiga sem quantidade = 1). */
+export function pilesIn(lines: Comparable[]): number {
+  return lines.reduce((acc, l) => {
+    const q = quantityOf(l);
+    return acc + (validQuantity(q) ? q : 0);
+  }, 0);
+}
+
 export const pilesLabel =(n: number) => `${n} ${n === 1 ? "estaca" : "estacas"}`;

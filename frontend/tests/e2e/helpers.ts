@@ -161,7 +161,7 @@ export async function firstMeasurement(jobId: number) {
   const res = await api.get(`/api/measurements/${items[0].id}`);
   expect(res.ok()).toBeTruthy();
   const m = (await res.json()) as {
-    id: number; status: string; photo_id: string | null; lines: { pile_code: string; depth_m: string }[];
+    id: number; status: string; photo_id: string | null; lines: { quantity: number; depth_m: string }[];
   };
   await api.dispose();
   return m;

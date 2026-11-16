@@ -5,17 +5,22 @@ import {
   noHorizontalScroll, uniqueName,
 } from "./helpers";
 
-const line = (page: Page, n: number) => page.getByRole("group", { name: `Linha ${n}` });
+const line = (page: Page, n: number) => page.getByRole("group", { name: `Grupo ${n}` });
 
-/** Abre o lançamento pela tela da obra e preenche duas estacas: 8,5 m e 12 m. */
-async function fillTwoPiles(page: Page, jobId: number) {
+async function openForm(page: Page, jobId: number) {
   await page.goto(`/obras/${jobId}`);
   await page.getByRole("link", { name: "Lançar medição" }).click();
   await expect(page).toHaveURL(new RegExp(`/obras/${jobId}/medicoes/nova`));
-  await line(page, 1).getByLabel("Estaca").fill("E-1");
+}
+
+/** Abre o lançamento pela tela da obra e preenche dois grupos de 1 estaca: 8,5 m e 12 m. */
+async function fillTwoPiles(page: Page, jobId: number) {
+  await openForm(page, jobId);
+  await line(page, 1).getByLabel("Qtd").fill("1");
   await line(page, 1).getByLabel("Profundidade (m)").fill("8,5");
-  await page.getByRole("button", { name: "Adicionar estaca" }).click();
-  await expect(line(page, 2).getByLabel("Estaca")).toHaveValue("E-2");
+  await page.getByRole("button", { name: "Adicionar grupo" }).click();
+  await expect(line(page, 2).getByLabel("Diâmetro")).toHaveValue("30");
+  await line(page, 2).getByLabel("Qtd").fill("1");
   await line(page, 2).getByLabel("Profundidade (m)").fill("12");
   await expect(page.getByText("Total: 2 estacas · 20,50 m")).toBeVisible();
 }
@@ -33,9 +38,29 @@ test("operador lança duas estacas e envia", async ({ page }) => {
   await noHorizontalScroll(page);
   await page.getByRole("button", { name: "Enviar", exact: true }).click();
   await expectSubmitted(page, "20,50 m");
-  await expect(page.getByRole("cell", { name: "E-2", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "12,00 m", exact: true }).first()).toBeVisible();
   await noHorizontalScroll(page);
   expect(await countMeasurements(job.id)).toBe(1);
+});
+
+test("operador lança por grupos: 30 × Ø30 × 8 m e 10 × Ø40 × 10 m", async ({ page }) => {
+  const { job, op } = await jobInProgress();
+  await loginWith(page, op);
+  await openForm(page, job.id);
+  await line(page, 1).getByLabel("Qtd").fill("30");
+  await line(page, 1).getByLabel("Profundidade (m)").fill("8");
+  await expect(line(page, 1)).toContainText("30 × 8,00 m = 240,00 m");
+  await page.getByRole("button", { name: "Adicionar grupo" }).click();
+  await line(page, 2).getByLabel("Diâmetro").selectOption("40");
+  await line(page, 2).getByLabel("Qtd").fill("10");
+  await line(page, 2).getByLabel("Profundidade (m)").fill("10");
+  await expect(page.getByText("Total: 40 estacas · 340,00 m")).toBeVisible();
+  await noHorizontalScroll(page);
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expectSubmitted(page, "340,00 m");
+  await expect(page.getByTestId("measurement-total")).toContainText("Total: 40 estacas");
+  await expect(page.getByRole("cell", { name: "240,00 m", exact: true }).first()).toBeVisible();
+  await noHorizontalScroll(page);
 });
 
 test("admin lança duas estacas e a medição já nasce aprovada", async ({ page }) => {
@@ -245,7 +270,7 @@ test("admin corrige e aprova, e exclui a medição de um operador", async ({ pag
   await loginWith(page, op);
   await page.goto(`/obras/${job.id}`);
   await page.getByRole("link", { name: "Lançar medição" }).click();
-  await line(page, 1).getByLabel("Estaca").fill("E-9");
+  await line(page, 1).getByLabel("Qtd").fill("1");
   await line(page, 1).getByLabel("Profundidade (m)").fill("7");
   await page.getByRole("button", { name: "Enviar", exact: true }).click();
   await expectSubmitted(page, "7,00 m");

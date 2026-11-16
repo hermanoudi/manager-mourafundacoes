@@ -8,8 +8,8 @@ import { countMeasurements, firstMeasurement, jobInProgress, loginWith, noHorizo
 const FIXTURE = path.join(__dirname, "fixtures", "anotacao.jpg");
 const PHOTOS = "**/api/jobs/*/photos";
 
-const line = (page: Page, n: number) => page.getByRole("group", { name: `Linha ${n}` });
-const lines = (page: Page) => page.getByRole("group", { name: /^Linha \d+$/ });
+const line = (page: Page, n: number) => page.getByRole("group", { name: `Grupo ${n}` });
+const lines = (page: Page) => page.getByRole("group", { name: /^Grupo \d+$/ });
 const photoInput = (page: Page) => page.locator('input[type="file"]');
 const sendButton = (page: Page) => page.getByRole("button", { name: "Enviar", exact: true });
 
@@ -34,10 +34,10 @@ test("foto das anotações: revisa a linha ilegível, corrige e envia com a foto
   await photoInput(page).setInputFiles(FIXTURE);
 
   await expect(lines(page)).toHaveCount(3);
-  await expect(line(page, 1).getByLabel("Estaca")).toHaveValue("E-1");
+  await expect(line(page, 1).getByLabel("Qtd")).toHaveValue("1");
   await expect(line(page, 1).getByLabel("Profundidade (m)")).toHaveValue("8,50");
   await expect(line(page, 2).getByLabel("Profundidade (m)")).toHaveValue("12,00");
-  await expect(line(page, 3).getByLabel("Estaca")).toHaveValue("E-3");
+  await expect(line(page, 3).getByLabel("Qtd")).toHaveValue("1");
   await expect(line(page, 3)).toContainText("Profundidade não reconhecida (ilegível)");
   await expect(page.getByText("Confira as linhas lidas da foto antes de enviar")).toBeVisible();
   await expect(sendButton(page)).toBeDisabled();
@@ -63,7 +63,7 @@ test("remover a linha ilegível também libera o envio", async ({ page }) => {
   await photoInput(page).setInputFiles(FIXTURE);
   await expect(lines(page)).toHaveCount(3);
   await expect(sendButton(page)).toBeDisabled();
-  await page.getByRole("button", { name: "Remover linha 3" }).click();
+  await page.getByRole("button", { name: "Remover grupo 3" }).click();
   await expect(sendButton(page)).toBeEnabled();
   await sendButton(page).click();
   await expect(page.getByTestId("measurement-total")).toContainText("20,50 m");
@@ -78,7 +78,7 @@ test("enquanto lê a foto, Enviar fica bloqueado (a medição não sai sem a fot
     await held;
     await route.continue();
   });
-  await line(page, 1).getByLabel("Estaca").fill("E-9");
+  await line(page, 1).getByLabel("Qtd").fill("1");
   await line(page, 1).getByLabel("Profundidade (m)").fill("5");
   await expect(sendButton(page)).toBeEnabled();
 
@@ -90,7 +90,7 @@ test("enquanto lê a foto, Enviar fica bloqueado (a medição não sai sem a fot
   release();
   await expect(page.getByText("Lendo a foto…")).toHaveCount(0);
   await expect(lines(page)).toHaveCount(4);
-  await page.getByRole("button", { name: "Remover linha 4" }).click();
+  await page.getByRole("button", { name: "Remover grupo 4" }).click();
   await expect(sendButton(page)).toBeEnabled();
   await sendButton(page).click();
   await expect(page.getByTestId("measurement-status")).toHaveText("Enviada");
@@ -112,7 +112,7 @@ test("falha na leitura: avisa e a digitação continua, com a foto anexada", asy
   await expect(page.getByRole("button", { name: "Tentar ler de novo" })).toBeVisible();
   await expect(lines(page)).toHaveCount(1);
 
-  await line(page, 1).getByLabel("Estaca").fill("E-7");
+  await line(page, 1).getByLabel("Qtd").fill("1");
   await line(page, 1).getByLabel("Profundidade (m)").fill("9");
   await expect(page.getByText("Total: 1 estaca · 9,00 m")).toBeVisible();
   await sendButton(page).click();

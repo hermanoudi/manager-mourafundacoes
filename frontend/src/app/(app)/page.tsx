@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { formatDateBR } from "@/lib/dates";
 import { listDrafts, type MeasurementDraft } from "@/lib/drafts";
-import { formatMeters, pilesLabel, type MeasurementSummary } from "@/lib/measurements";
+import { formatMeters, pilesIn, pilesLabel, type MeasurementSummary } from "@/lib/measurements";
 
 function subscribeStorage(cb: () => void) {
   window.addEventListener("storage", cb);
@@ -93,7 +93,7 @@ function DraftRows({ drafts, jobs }: { drafts: MeasurementDraft[]; jobs: JobItem
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{job?.name ?? `Obra #${d.job_id}`}</span>
                 <span data-numeric className="block truncate text-sm text-stone-600">
-                  {formatDateBR(d.work_date)} · {pilesLabel(d.lines.length)}
+                  {formatDateBR(d.work_date)} · {pilesLabel(pilesIn(d.lines))}
                 </span>
               </span>
               <span className="shrink-0 font-medium text-amber-900">

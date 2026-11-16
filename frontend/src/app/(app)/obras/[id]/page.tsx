@@ -20,7 +20,7 @@ import { formatDecimalBR } from "@/lib/format";
 import { listDrafts } from "@/lib/drafts";
 import { messageFor } from "@/lib/errors";
 import {
-  formatHundredthsGrouped, pilesLabel, sumHundredths, type MeasurementSummary,
+  formatHundredthsGrouped, pilesIn, pilesLabel, sumHundredths, type MeasurementSummary,
 } from "@/lib/measurements";
 
 /** Avanço do ciclo de vida; o cancelamento fica separado, na aba Dados. */
@@ -110,7 +110,7 @@ function LocalDrafts({ jobId }: { jobId: number }) {
               className="flex min-h-11 items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-stone-50"
             >
               <span>
-                <span className="font-medium">{formatDateBR(d.work_date)} · {pilesLabel(d.lines.length)}</span>
+                <span className="font-medium">{formatDateBR(d.work_date)} · {pilesLabel(pilesIn(d.lines))}</span>
                 <span className="block text-stone-600">
                   {d.submit ? "Envio pendente · " : ""}salvo em {formatDateTimeBR(d.saved_at)}
                 </span>
