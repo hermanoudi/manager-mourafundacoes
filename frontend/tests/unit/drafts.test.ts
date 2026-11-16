@@ -7,7 +7,7 @@ const draft = (over: Partial<MeasurementDraft> = {}): MeasurementDraft => ({
   job_id: 1,
   rig_id: 2,
   work_date: "2026-11-10",
-  lines: [{ pile_code: "E-1", diameter_cm: 30, depth_m: "8.5" }],
+  lines: [{ quantity: 1, diameter_cm: 30, depth_m: "8.5" }],
   notes: null,
   photo_id: null,
   submit: false,

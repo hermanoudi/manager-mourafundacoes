@@ -4,8 +4,16 @@ import { toApiDecimal } from "./format";
 
 export type IdName = { id: number; name: string };
 
-/** Linha como vai para a API; num rascunho local o diâmetro pode faltar (linha incompleta). */
-export type MeasurementLineIn = { pile_code: string; diameter_cm: number | null; depth_m: string };
+/**
+ * Grupo como vai para a API: `quantity` estacas iguais. Num rascunho local quantidade e diâmetro
+ * podem faltar (linha incompleta). `pile_code` só existe nas medições antigas (uma estaca por linha).
+ */
+export type MeasurementLineIn = {
+  quantity: number | null;
+  diameter_cm: number | null;
+  depth_m: string;
+  pile_code?: string | null;
+};
 
 export type MeasurementIn = {
   client_key: string;
@@ -30,6 +38,7 @@ export type MeasurementSummary = {
   work_date: string;
   status: MeasurementStatus;
   total_m: string;
+  total_piles: number;
   totals_by_diameter: DiameterTotal[];
   uncontracted_diameters: number[];
   created_by: IdName;
@@ -44,12 +53,12 @@ export type MeasurementSummary = {
 };
 
 export type MeasurementOut = MeasurementSummary & {
-  lines: { pile_code: string; diameter_cm: number; depth_m: string }[];
+  lines: { quantity: number; diameter_cm: number; depth_m: string; pile_code: string | null }[];
 };
 
 /** Linha lida da foto, já normalizada pelo servidor; `valid=false` traz o motivo em `error`. */
 export type ExtractedLine = {
-  pile_code: string;
+  quantity: number | null;
   diameter_cm: number | null;
   depth_m: string | null;
   valid: boolean;
@@ -66,18 +75,11 @@ export type PhotoUpload = {
 
 export const MIN_DIAMETER_CM = 25;
 
-/** Mesma chave do backend: só letras e dígitos, maiúsculos ("E-12" == "e 12"). */
-export function pileKey(code: string): string {
-  return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
+export const QUANTITY_MAX = 999;
 
-/** Próximo código sugerido: incrementa o último número mantendo prefixo e zeros ("E-09" → "E-10"). */
-export function nextPileCode(code: string): string {
-  const m = /^(.*?)(\d+)(\D*)$/.exec(code.trim());
-  if (!m) return "";
-  const [, prefix, digits, suffix] = m;
-  return `${prefix}${String(Number(digits) + 1).padStart(digits.length, "0")}${suffix}`;
-}
+/** Quantidade válida: inteiro de 1 a 999. */
+export const validQuantity = (q: number | null | undefined): q is number =>
+  q != null && Number.isInteger(q) && q >= 1 && q <= QUANTITY_MAX;
 
 /** Metragem (pt-BR "8,5" ou API "8.5") em centésimos inteiros; null se inválida ou com mais de 2 casas. */
 export function toHundredths(value: string): number | null {
@@ -108,14 +110,18 @@ export function formatMeters(apiValue: string): string {
   return `${h === null ? apiValue : formatHundredthsGrouped(h)} m`;
 }
 
-type Comparable = { pile_code: string; diameter_cm: number | null; depth_m: string };
+type Comparable = { quantity?: number | null; diameter_cm: number | null; depth_m: string };
 
-const lineSig = (l: Comparable) => `${pileKey(l.pile_code)}|${l.diameter_cm}|${toHundredths(l.depth_m)}`;
+/** Rascunho salvo antes dos grupos não tem `quantity`: cada linha era uma estaca. */
+const quantityOf = (l: Comparable) => (l.quantity === undefined ? 1 : l.quantity);
+const lineSig = (l: Comparable) => `${quantityOf(l)}|${l.diameter_cm}|${toHundredths(l.depth_m)}`;
 const linesSig = (lines: Comparable[]) => lines.map(lineSig).sort().join(";");
 
-/** O que o servidor devolveu tem o mesmo conteúdo do payload enviado (estaca pela pile_key, profundidade em centésimos)? */
+/** O que o servidor devolveu tem o mesmo conteúdo do payload enviado (grupos em qualquer ordem, profundidade em centésimos)? */
 export function sameContent(payload: MeasurementIn, out: MeasurementOut): boolean {
-  if (payload.lines.some((l) => l.diameter_cm == null || toHundredths(l.depth_m) === null)) return false;
+  if (payload.lines.some((l) => !validQuantity(quantityOf(l)) || l.diameter_cm == null || toHundredths(l.depth_m) === null)) {
+    return false;
+  }
   return (
     (payload.operator_id == null || payload.operator_id === out.created_by.id) &&
     payload.rig_id === out.rig.id &&

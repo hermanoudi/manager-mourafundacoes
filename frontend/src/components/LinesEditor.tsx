@@ -4,29 +4,50 @@ import { useState } from "react";
 
 import { DecimalInput } from "@/components/DecimalInput";
 import { Field, inputClass } from "@/components/Field";
+import { formatDecimalBR } from "@/lib/format";
 import {
-  MIN_DIAMETER_CM, formatHundredths, nextPileCode, pileKey, pilesLabel, toHundredths,
+  MIN_DIAMETER_CM, QUANTITY_MAX, formatHundredths, formatHundredthsGrouped, pilesLabel, toHundredths,
+  type MeasurementLineIn,
 } from "@/lib/measurements";
 
 /**
- * Linha em edição: tudo string pt-BR; `custom` = diâmetro "Outro" (fora da lista contratada);
- * `photo_error` = linha lida da foto que o servidor não entendeu — vale até o operador mexer nela.
+ * Grupo em edição (`quantity` estacas iguais): tudo string pt-BR; `custom` = diâmetro "Outro"
+ * (fora da lista contratada); `photo_error` = linha lida da foto que o servidor não entendeu —
+ * vale até o operador mexer nela; `pile_code` = código da estaca de medição antiga, só carregado.
  */
 export type LineInput = {
-  pile_code: string;
+  quantity: string;
   diameter_cm: string;
   depth_m: string;
   custom?: boolean;
   photo_error?: string;
+  pile_code?: string | null;
 };
+
+/** Linhas da API ou de um rascunho → editor; rascunho anterior aos grupos (sem quantidade) vale 1. */
+export function linesFromApi(lines: MeasurementLineIn[], diameters: number[]): LineInput[] {
+  return lines.map((l) => ({
+    quantity: l.quantity === undefined ? "1" : l.quantity == null ? "" : String(l.quantity),
+    diameter_cm: l.diameter_cm == null ? "" : String(l.diameter_cm),
+    custom: l.diameter_cm != null && !diameters.includes(l.diameter_cm),
+    depth_m: formatDecimalBR(l.depth_m),
+    ...(l.pile_code ? { pile_code: l.pile_code } : {}),
+  }));
+}
+
+/** Quantidade digitada → inteiro de 1 a 999, ou null. */
+function parseQuantity(q: string): number | null {
+  if (!/^\d{1,3}$/.test(q)) return null;
+  const n = Number(q);
+  return n >= 1 && n <= QUANTITY_MAX ? n : null;
+}
 export type RigLimits = { max_diameter_cm: number; max_depth_m: string };
 
 const OTHER = "other";
 
-function lineError(line: LineInput, index: number, lines: LineInput[], rig: RigLimits | null) {
+function lineError(line: LineInput, rig: RigLimits | null) {
   if (line.photo_error) return line.photo_error;
-  const key = pileKey(line.pile_code);
-  if (key && lines.slice(0, index).some((l) => pileKey(l.pile_code) === key)) return "Estaca repetida";
+  if (line.quantity !== "" && parseQuantity(line.quantity) === null) return `Quantidade inválida (1 a ${QUANTITY_MAX})`;
   if (line.diameter_cm !== "") {
     const d = Number(line.diameter_cm);
     const max = rig?.max_diameter_cm ?? 120;
@@ -46,12 +67,19 @@ function lineError(line: LineInput, index: number, lines: LineInput[], rig: RigL
   return null;
 }
 
+/** Quantidade e profundidade (centésimos) do grupo, quando ambas válidas. */
+function subtotal(line: LineInput): { q: number; h: number } | null {
+  const q = parseQuantity(line.quantity);
+  const h = toHundredths(line.depth_m);
+  return q === null || h === null || h === 0 ? null : { q, h };
+}
+
 /** Erros por linha (null = ok) e se todas as linhas estão completas. */
 export function validateLines(lines: LineInput[], rig: RigLimits | null) {
-  const errors = lines.map((l, i) => lineError(l, i, lines, rig));
+  const errors = lines.map((l) => lineError(l, rig));
   const complete =
     lines.length > 0 &&
-    lines.every((l) => l.pile_code.trim() !== "" && l.diameter_cm !== "" && l.depth_m !== "");
+    lines.every((l) => l.quantity !== "" && l.diameter_cm !== "" && l.depth_m !== "");
   return { errors, complete, valid: complete && errors.every((e) => e === null) };
 }
 
@@ -60,9 +88,10 @@ export function totals(lines: LineInput[]) {
   for (const l of lines) {
     const d = Number(l.diameter_cm);
     const h = toHundredths(l.depth_m);
-    if (l.diameter_cm === "" || !Number.isInteger(d) || h === null) continue;
+    const q = parseQuantity(l.quantity);
+    if (l.diameter_cm === "" || !Number.isInteger(d) || h === null || q === null) continue;
     const t = byDiameter.get(d) ?? { piles: 0, h: 0 };
-    byDiameter.set(d, { piles: t.piles + 1, h: t.h + h });
+    byDiameter.set(d, { piles: t.piles + q, h: t.h + q * h });
   }
   const rows = [...byDiameter.entries()].sort(([a], [b]) => a - b);
   return {
@@ -110,7 +139,7 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
     onChange([
       ...lines,
       {
-        pile_code: last ? nextPileCode(last.pile_code) : "",
+        quantity: "",
         diameter_cm: last ? last.diameter_cm : diameters.length ? String(diameters[0]) : "",
         custom: last ? last.custom : diameters.length === 0,
         depth_m: "",
@@ -124,21 +153,22 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
         {lines.map((line, i) => {
           const n = i + 1;
           const custom = line.custom || diameters.length === 0;
+          const sub = subtotal(line);
           return (
             <li key={i}>
               <div
                 role="group"
-                aria-label={`Linha ${n}`}
+                aria-label={`Grupo ${n}`}
                 className={`rounded-lg p-3 shadow-sm ${
                   line.photo_error ? "bg-red-50 ring-2 ring-red-500" : errors[i] ? "bg-white ring-2 ring-red-300" : "bg-white"
                 }`}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-stone-700">Linha {n}</span>
+                  <span className="text-sm font-medium text-stone-700">Grupo {n}</span>
                   {lines.length > 1 && (
                     <button
                       type="button"
-                      aria-label={`Remover linha ${n}`}
+                      aria-label={`Remover grupo ${n}`}
                       onClick={() => remove(i)}
                       className="-mr-2 min-h-11 rounded-lg px-3 text-sm font-medium text-stone-700 hover:bg-stone-100"
                     >
@@ -147,17 +177,16 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                   )}
                 </div>
                 <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-3">
-                  <div className="col-span-2 md:col-span-1">
-                    <Field label="Estaca">
+                  <div className="min-w-0">
+                    <Field label="Qtd">
                       <input
                         className={inputClass}
                         aria-invalid={errors[i] ? true : undefined}
                         aria-describedby={errors[i] ? `line-${i}-error` : undefined}
-                        value={line.pile_code}
-                        maxLength={20}
-                        autoCapitalize="characters"
+                        value={line.quantity}
+                        inputMode="numeric"
                         autoComplete="off"
-                        onChange={(e) => set(i, { pile_code: e.target.value })}
+                        onChange={(e) => set(i, { quantity: e.target.value.replace(/\D/g, "").slice(0, 3) })}
                       />
                     </Field>
                   </div>
@@ -194,7 +223,7 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                       </Field>
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="col-span-2 min-w-0 md:col-span-1">
                     <Field label="Profundidade (m)">
                       <DecimalInput
                         className={depthClass}
@@ -206,6 +235,11 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                     </Field>
                   </div>
                 </div>
+                {sub && !errors[i] && (
+                  <p data-numeric className="mt-2 text-right text-sm text-stone-700">
+                    {`${sub.q} × ${formatHundredths(sub.h)} m = ${formatHundredthsGrouped(sub.q * sub.h)} m`}
+                  </p>
+                )}
                 {errors[i] && (
                   <p id={`line-${i}-error`} className="mt-2 text-sm font-medium text-red-700">
                     {errors[i]}
@@ -221,7 +255,7 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
           role="status"
           className="flex items-center justify-between gap-3 rounded-lg bg-stone-800 py-1 pl-4 pr-1 text-sm text-white"
         >
-          <span>{`Linha ${removed.n} removida`}</span>
+          <span>{`Grupo ${removed.n} removido`}</span>
           <button
             type="button"
             onClick={undo}
@@ -236,7 +270,7 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
         onClick={add}
         className="min-h-12 w-full rounded-lg border border-brand px-4 btn-label text-brand md:w-auto"
       >
-        Adicionar estaca
+        Adicionar grupo
       </button>
       <div data-testid="lines-totals" data-numeric className="rounded-lg bg-brand-soft p-3 text-sm text-stone-900">
         {sum.rows.map(([d, t]) => (

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { DroppedEditsAlert } from "@/components/DroppedEditsAlert";
 import { Field, inputClass } from "@/components/Field";
 import type { JobOut } from "@/components/JobForm";
-import { LinesEditor, totals, validateLines, type LineInput } from "@/components/LinesEditor";
+import { LinesEditor, linesFromApi, totals, validateLines, type LineInput } from "@/components/LinesEditor";
 import { Notice } from "@/components/Notice";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { api } from "@/lib/api";
@@ -43,7 +43,7 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
       rigId: job.rigs.length === 1 ? String(job.rigs[0].id) : "",
       workDate: todaySP(),
       lines: [{
-        pile_code: "",
+        quantity: "",
         diameter_cm: diameters.length ? String(diameters[0]) : "",
         custom: diameters.length === 0,
         depth_m: "",
@@ -58,12 +58,7 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
     operatorId: operatorId == null ? "" : String(operatorId),
     rigId: rigId == null ? "" : String(rigId),
     workDate: src.work_date,
-    lines: src.lines.map((l) => ({
-      pile_code: l.pile_code,
-      diameter_cm: l.diameter_cm == null ? "" : String(l.diameter_cm),
-      custom: l.diameter_cm != null && !diameters.includes(l.diameter_cm),
-      depth_m: formatDecimalBR(l.depth_m),
-    })),
+    lines: linesFromApi(src.lines, diameters),
     notes: src.notes ?? "",
     photoId: src.photo_id ?? null,
   };
@@ -72,7 +67,7 @@ function fromSource(src: MeasurementIn | MeasurementOut | null, job: JobOut): Va
 /** Linha lida da foto → linha do editor; a inválida vem marcada com o motivo do servidor. */
 function fromExtracted(l: ExtractedLine, diameters: number[]): LineInput {
   return {
-    pile_code: l.pile_code,
+    quantity: l.quantity == null ? "" : String(l.quantity),
     diameter_cm: l.diameter_cm == null ? "" : String(l.diameter_cm),
     custom: l.diameter_cm == null ? diameters.length === 0 : !diameters.includes(l.diameter_cm),
     depth_m: l.depth_m == null ? "" : formatDecimalBR(l.depth_m),
@@ -80,7 +75,7 @@ function fromExtracted(l: ExtractedLine, diameters: number[]): LineInput {
   };
 }
 
-const isBlank = (l: LineInput) => l.pile_code.trim() === "" && l.depth_m === "";
+const isBlank = (l: LineInput) => l.quantity === "" && l.depth_m === "";
 const hasPhotoErrors = (v: Values) => v.lines.some((l) => l.photo_error);
 
 function problem(v: Values, rig: JobOut["rigs"][number] | null, pickOperator: boolean): string | null {
@@ -90,8 +85,8 @@ function problem(v: Values, rig: JobOut["rigs"][number] | null, pickOperator: bo
   if (!v.workDate) return "Informe a data do serviço";
   if (v.workDate > todaySP()) return "A data não pode ser futura";
   const lines = validateLines(v.lines, rig);
-  if (!lines.complete) return "Preencha estaca, diâmetro e profundidade em todas as linhas";
-  if (!lines.valid) return "Corrija as linhas destacadas";
+  if (!lines.complete) return "Preencha quantidade, diâmetro e profundidade em todos os grupos";
+  if (!lines.valid) return "Corrija os grupos destacados";
   return null;
 }
 
@@ -145,9 +140,10 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
       rig_id: v.rigId ? Number(v.rigId) : null,
       work_date: v.workDate,
       lines: v.lines.map((l) => ({
-        pile_code: l.pile_code.trim(),
+        quantity: l.quantity === "" ? null : Number(l.quantity),
         diameter_cm: l.diameter_cm === "" ? null : Number(l.diameter_cm),
         depth_m: toApiDecimal(l.depth_m),
+        ...(l.pile_code ? { pile_code: l.pile_code } : {}),
       })),
       notes: nullIfEmpty(v.notes),
       photo_id: v.photoId,
@@ -230,7 +226,7 @@ export function MeasurementForm({ job, clientKey, server = null }: Props) {
         return;
       }
       clearDraft(clientKey);
-      flashSent(m.id, m.status, values.lines.length, m.total_m);
+      flashSent(m.id, m.status, m.total_piles, m.total_m);
       router.push(`/medicoes/${m.id}`);
     } catch (err) {
       if (err instanceof TypeError) {
