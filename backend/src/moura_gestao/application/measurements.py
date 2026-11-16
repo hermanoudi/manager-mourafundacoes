@@ -42,13 +42,13 @@ async def _validate(
     for n, line in enumerate(m.lines, start=1):
         if not MIN_DIAMETER_CM <= line.diameter_cm <= rig.max_diameter_cm:
             raise DomainError(
-                f"Linha {n}: diâmetro {line.diameter_cm} cm fora do limite da "
+                f"Grupo {n}: diâmetro {line.diameter_cm} cm fora do limite da "
                 f"perfuratriz ({MIN_DIAMETER_CM}–{rig.max_diameter_cm} cm)",
                 code="line_exceeds_rig",
             )
         if line.depth_m > rig.max_depth_m:
             raise DomainError(
-                f"Linha {n}: profundidade {line.depth_m} m acima do limite da "
+                f"Grupo {n}: profundidade {line.depth_m} m acima do limite da "
                 f"perfuratriz ({rig.max_depth_m} m)",
                 code="line_exceeds_rig",
             )

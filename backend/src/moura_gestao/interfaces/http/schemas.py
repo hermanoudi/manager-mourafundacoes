@@ -342,7 +342,7 @@ Measure = Annotated[Decimal, _to_str]
 
 
 class MeasurementLineIO(BaseModel):
-    quantity: int = Field(ge=QUANTITY_MIN, le=QUANTITY_MAX)
+    quantity: int = Field(default=1, ge=QUANTITY_MIN, le=QUANTITY_MAX)  # tela antiga: 1 estaca
     pile_code: OptionalPileCode = None
     diameter_cm: int = Field(ge=20, le=120)
     depth_m: Annotated[Decimal, BeforeValidator(_depth), _to_str]

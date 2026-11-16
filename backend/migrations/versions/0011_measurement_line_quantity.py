@@ -38,7 +38,33 @@ def downgrade() -> None:
         FROM measurement_lines, generate_series(2, quantity)
         """
     )
-    op.execute("UPDATE measurement_lines SET pile_code = 'L' || id WHERE pile_code IS NULL")
+    # O código antigo compara estacas por letras e dígitos ("L-12" == "L12"): o código
+    # gerado ganha "X" até não bater com nenhuma outra estaca da mesma obra.
+    op.execute(
+        """
+        CREATE TEMP TABLE _generated ON COMMIT DROP AS
+            SELECT id FROM measurement_lines WHERE pile_code IS NULL;
+        UPDATE measurement_lines SET pile_code = 'L' || id WHERE pile_code IS NULL;
+        DO $$
+        BEGIN
+            LOOP
+                UPDATE measurement_lines g SET pile_code = g.pile_code || 'X'
+                FROM measurements gm
+                WHERE gm.id = g.measurement_id
+                  AND g.id IN (SELECT id FROM _generated)
+                  AND EXISTS (
+                      SELECT 1 FROM measurement_lines o
+                      JOIN measurements om ON om.id = o.measurement_id
+                      WHERE om.job_id = gm.job_id AND o.id <> g.id
+                        AND (o.id NOT IN (SELECT id FROM _generated) OR o.id < g.id)
+                        AND regexp_replace(upper(o.pile_code), '[^A-Z0-9]', '', 'g')
+                          = regexp_replace(upper(g.pile_code), '[^A-Z0-9]', '', 'g')
+                  );
+                EXIT WHEN NOT FOUND;
+            END LOOP;
+        END $$;
+        """
+    )
     op.alter_column(
         'measurement_lines', 'pile_code', existing_type=sa.String(20), nullable=False
     )

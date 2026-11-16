@@ -214,6 +214,14 @@ async def test_legacy_pile_code_round_trips(ctx):
     assert resp.json()["total_piles"] == 2
 
 
+async def test_line_without_quantity_counts_as_one_pile(ctx):
+    """Tela antiga aberta durante o deploy manda estaca por estaca, sem quantidade."""
+    old = [{"pile_code": "E-1", "diameter_cm": 30, "depth_m": "8"}]
+    m = await create(ctx.op_a, body(ctx, old))
+    assert m["lines"][0]["quantity"] == 1
+    assert m["lines"][0]["pile_code"] == "E-1"
+
+
 async def test_invalid_lines_422(ctx):
     bad_lines = ([], [line(quantity=0)], [line(depth="0")], [line(diameter=10)], [line("E" * 21)])
     for bad in bad_lines:
@@ -227,7 +235,7 @@ async def test_line_exceeds_rig_limits_422(ctx):
         resp = await ctx.op_a.post("/api/measurements", json=body(ctx, [line(), bad]))
         assert resp.status_code == 422, bad
         assert resp.json()["code"] == "line_exceeds_rig"
-        assert resp.json()["detail"].startswith("Linha 2:")
+        assert resp.json()["detail"].startswith("Grupo 2:")
     await create(ctx.op_a, body(ctx, [line(None, 80, "22")]))
 
 
