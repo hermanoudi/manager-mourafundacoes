@@ -16,7 +16,7 @@ ALLOWED_CONTENT_TYPES = {
 class RawLine(BaseModel):
     """Linha lida da foto, exatamente como escrita. A IA só extrai: nenhum campo de valor."""
 
-    pile_code: str
+    quantity: str
     diameter: str
     depth: str
 

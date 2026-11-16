@@ -57,7 +57,7 @@ def _extraction_out(ex: Extraction) -> ExtractionOut:
     return ExtractionOut(
         lines=[
             ExtractedLineOut(
-                pile_code=ln.pile_code, diameter_cm=ln.diameter_cm, depth_m=ln.depth_m,
+                quantity=ln.quantity, diameter_cm=ln.diameter_cm, depth_m=ln.depth_m,
                 valid=ln.valid, error=ln.error,
             )
             for ln in ex.lines

@@ -85,9 +85,9 @@ async def test_upload_and_extract_with_fake(ctx):
     lines = data["extraction"]["lines"]
     assert len(lines) == 3
     assert lines[0] == {
-        "pile_code": "E-1", "diameter_cm": 30, "depth_m": "8.50", "valid": True, "error": None
+        "quantity": 1, "diameter_cm": 30, "depth_m": "8.50", "valid": True, "error": None
     }
-    assert lines[2]["pile_code"] == "E-3"
+    assert lines[2]["quantity"] == 1
     assert lines[2]["valid"] is False
     assert lines[2]["error"]
     assert (await ctx.office.get("/api/measurements")).json()["total"] == 0
@@ -278,26 +278,64 @@ async def test_submit_rereads_job_after_lock(ctx, db_session):
 
 async def test_normalize_extracted_variants():
     ex = normalize_extracted([
-        RawLine(pile_code="e-1", diameter="Ø40", depth="12,5"),
-        RawLine(pile_code="E-2", diameter="40cm", depth="8"),
-        RawLine(pile_code="E-3", diameter="40 cm", depth="abc"),
-        RawLine(pile_code="E-4", diameter="abc", depth="10"),
-        RawLine(pile_code="", diameter="30", depth="10"),
+        RawLine(quantity="1", diameter="Ø40", depth="12,5"),
+        RawLine(quantity="", diameter="40cm", depth="8"),
+        RawLine(quantity="1", diameter="40 cm", depth="abc"),
+        RawLine(quantity="1", diameter="abc", depth="10"),
     ])
-    a, b, c, d, e = ex.lines
-    assert (a.pile_code, a.diameter_cm, str(a.depth_m), a.valid) == ("E-1", 40, "12.50", True)
-    assert (b.diameter_cm, str(b.depth_m), b.valid) == (40, "8.00", True)
+    a, b, c, d = ex.lines
+    assert (a.quantity, a.diameter_cm, str(a.depth_m), a.valid) == (1, 40, "12.50", True)
+    assert (b.quantity, b.diameter_cm, str(b.depth_m), b.valid) == (1, 40, "8.00", True)
     assert (c.diameter_cm, c.depth_m, c.valid) == (40, None, False)
     assert c.error
     assert (d.diameter_cm, d.valid) == (None, False)
     assert d.error
-    assert e.valid is False
     assert ex.warnings == []
+
+
+async def test_quantity_parsing():
+    ok = normalize_extracted([
+        RawLine(quantity="30 estacas", diameter="30", depth="8"),
+        RawLine(quantity="10x", diameter="35", depth="10"),
+        RawLine(quantity=" 2 ", diameter="40", depth="9"),
+    ])
+    assert [(ln.quantity, ln.valid) for ln in ok.lines] == [(30, True), (10, True), (2, True)]
+    for raw in ("0", "1,5", "mil", "1000"):
+        (ln,) = normalize_extracted([RawLine(quantity=raw, diameter="30", depth="8")]).lines
+        assert ln.valid is False, raw
+        assert ln.quantity is None
+        assert "quantidade" in (ln.error or "").lower(), raw
+
+
+async def test_groups_equal_valid_lines_in_first_order():
+    ex = normalize_extracted([
+        RawLine(quantity="1", diameter="Ø30", depth="8"),
+        RawLine(quantity="1", diameter="35", depth="10"),
+        RawLine(quantity="2", diameter="30", depth="8,0"),
+    ])
+    assert [(ln.quantity, ln.diameter_cm, ln.depth_m) for ln in ex.lines] == [
+        (3, 30, Decimal("8.00")), (1, 35, Decimal("10.00")),
+    ]
+
+
+async def test_invalid_lines_are_not_merged():
+    ex = normalize_extracted([RawLine(quantity="1", diameter="30", depth="ilegível")] * 2)
+    assert len(ex.lines) == 2
+    assert not any(ln.valid for ln in ex.lines)
+
+
+async def test_merge_never_exceeds_999():
+    ex = normalize_extracted([RawLine(quantity="600", diameter="30", depth="8")] * 3)
+    assert [ln.quantity for ln in ex.lines] == [600, 600, 600]
+    ex = normalize_extracted([RawLine(quantity="500", diameter="30", depth="8")] * 3)
+    assert [ln.quantity for ln in ex.lines] == [500, 500, 500]
+    ex = normalize_extracted([RawLine(quantity="400", diameter="30", depth="8")] * 3)
+    assert [ln.quantity for ln in ex.lines] == [800, 400]
 
 
 async def test_normalize_extracted_truncates_over_200():
     ex = normalize_extracted(
-        [RawLine(pile_code=f"E-{i}", diameter="30", depth="10") for i in range(205)]
+        [RawLine(quantity="1", diameter="30", depth=str(i + 1)) for i in range(205)]
     )
     assert len(ex.lines) == 200
     assert len(ex.warnings) == 1

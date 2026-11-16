@@ -412,7 +412,7 @@ class MeasurementOut(MeasurementSummaryOut):
 
 
 class ExtractedLineOut(BaseModel):
-    pile_code: str
+    quantity: int | None
     diameter_cm: int | None
     depth_m: Measure | None
     valid: bool

@@ -35,7 +35,7 @@ def _extractor(models: FakeModels, timeout_s: float = 5) -> GeminiNotesExtractor
 
 
 async def test_sends_image_and_structured_schema():
-    lines = [RawLine(pile_code="E-1", diameter="30", depth="8,5")]
+    lines = [RawLine(quantity="1", diameter="30", depth="8,5")]
     models = FakeModels(SimpleNamespace(parsed=lines, text=None))
     assert await _extractor(models).extract(b"img", "image/jpeg") == lines
     (call,) = models.calls
@@ -48,10 +48,10 @@ async def test_sends_image_and_structured_schema():
 
 
 async def test_falls_back_to_json_text_when_not_parsed():
-    text = '[{"pile_code": "E-1", "diameter": "30", "depth": "8,5"}]'
+    text = '[{"quantity": "1", "diameter": "30", "depth": "8,5"}]'
     models = FakeModels(SimpleNamespace(parsed=None, text=text))
     assert await _extractor(models).extract(b"img", "image/png") == [
-        RawLine(pile_code="E-1", diameter="30", depth="8,5")
+        RawLine(quantity="1", diameter="30", depth="8,5")
     ]
 
 

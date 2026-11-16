@@ -15,11 +15,13 @@ log = logging.getLogger(__name__)
 
 PROMPT = """\
 A imagem é a foto de uma folha de anotações de um operador de perfuratriz de estacas.
-Para cada estaca anotada, extraia exatamente como está escrito:
-- pile_code: o identificador da estaca (ex.: "E-12", "P3");
+A folha pode anotar estaca por estaca (uma estaca por linha) ou em grupos
+(ex.: "30 estacas Ø30 8m"). Para cada linha anotada, extraia exatamente como está escrito:
+- quantity: quantas estacas a linha representa (ex.: "30"); escreva "1" quando a linha
+  for uma estaca só (o número/código da estaca NÃO é quantidade);
 - diameter: o diâmetro em centímetros (ex.: "30", "Ø40");
 - depth: a profundidade em metros (ex.: "12,5").
-Não calcule, não some, não converta unidades e não corrija valores.
+Não calcule, não some, não junte linhas, não converta unidades e não corrija valores.
 Não invente linhas: ignore linhas ilegíveis por inteiro; se só um campo estiver ilegível,
 escreva "ilegível" nesse campo.
 Responda com a lista de linhas na ordem em que aparecem na folha."""
@@ -74,9 +76,9 @@ class FakeNotesExtractor:
 
     async def extract(self, image: bytes, content_type: str) -> list[RawLine]:
         return [
-            RawLine(pile_code="E-1", diameter="30", depth="8,5"),
-            RawLine(pile_code="E-2", diameter="30", depth="12,0"),
-            RawLine(pile_code="E-3", diameter="40", depth="ilegível"),
+            RawLine(quantity="1", diameter="30", depth="8,5"),
+            RawLine(quantity="1", diameter="30", depth="12,0"),
+            RawLine(quantity="1", diameter="40", depth="ilegível"),
         ]
 
 

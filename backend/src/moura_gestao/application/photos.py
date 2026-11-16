@@ -1,7 +1,7 @@
 import re
 import uuid
 from collections.abc import AsyncIterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 
 from moura_gestao.application.jobs import get_job_for
@@ -13,7 +13,7 @@ from moura_gestao.application.ports import (
 )
 from moura_gestao.domain.errors import Conflict, DomainError, NotFound
 from moura_gestao.domain.jobs import Job, JobStatus
-from moura_gestao.domain.measurements import normalize_pile_code
+from moura_gestao.domain.measurements import QUANTITY_MAX, QUANTITY_MIN
 from moura_gestao.domain.numbers import parse_decimal_br, quantize_measure
 from moura_gestao.domain.photos import ALLOWED_CONTENT_TYPES, Photo, RawLine, photo_key
 from moura_gestao.domain.users import Role, User
@@ -23,11 +23,12 @@ EXTRACTION_ERRORS = frozenset({"extraction_failed", "extraction_unavailable"})
 _NOT_FOUND = "Foto não encontrada"
 _DIAMETER = re.compile(r"^[ØøΦφ⌀]?\s*(\d+)\s*(?:cm)?$", re.IGNORECASE)
 _DEPTH_UNIT = re.compile(r"\s*m$", re.IGNORECASE)
+_QUANTITY = re.compile(r"^(\d+)\s*(?:x|un|estacas?)?$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
 class ExtractedLine:
-    pile_code: str
+    quantity: int | None
     diameter_cm: int | None
     depth_m: Decimal | None
     valid: bool
@@ -38,6 +39,16 @@ class ExtractedLine:
 class Extraction:
     lines: list[ExtractedLine]
     warnings: list[str] = field(default_factory=list)
+
+
+def _quantity(raw: str) -> int:
+    text = raw.strip()
+    if not text:
+        return 1
+    match = _QUANTITY.match(text)
+    if not match or not QUANTITY_MIN <= int(match.group(1)) <= QUANTITY_MAX:
+        raise ValueError(f"quantidade não reconhecida ({text})")
+    return int(match.group(1))
 
 
 def _diameter(raw: str) -> int:
@@ -59,9 +70,9 @@ def _depth(raw: str) -> Decimal:
 
 def _normalize_line(raw: RawLine) -> ExtractedLine:
     errors: list[str] = []
-    pile_code, diameter, depth = raw.pile_code.strip(), None, None
+    quantity, diameter, depth = None, None, None
     try:
-        pile_code = normalize_pile_code(raw.pile_code)
+        quantity = _quantity(raw.quantity)
     except ValueError as exc:
         errors.append(str(exc))
     try:
@@ -76,7 +87,28 @@ def _normalize_line(raw: RawLine) -> ExtractedLine:
     if errors:
         joined = "; ".join(errors)
         error = joined[0].upper() + joined[1:]
-    return ExtractedLine(pile_code, diameter, depth, valid=not errors, error=error)
+    return ExtractedLine(quantity, diameter, depth, valid=not errors, error=error)
+
+
+def _group(lines: list[ExtractedLine]) -> list[ExtractedLine]:
+    """Junta linhas válidas de mesmo diâmetro e profundidade (sem passar de 999 por grupo).
+
+    Linhas inválidas ficam onde estão, uma a uma, para o operador revisar.
+    """
+    out: list[ExtractedLine] = []
+    last: dict[tuple[int | None, Decimal | None], int] = {}
+    for line in lines:
+        if not line.valid or line.quantity is None:
+            out.append(line)
+            continue
+        key = (line.diameter_cm, line.depth_m)
+        i = last.get(key)
+        if i is not None and (out[i].quantity or 0) + line.quantity <= QUANTITY_MAX:
+            out[i] = replace(out[i], quantity=(out[i].quantity or 0) + line.quantity)
+        else:
+            last[key] = len(out)
+            out.append(line)
+    return out
 
 
 def normalize_extracted(raw: list[RawLine]) -> Extraction:
@@ -87,7 +119,7 @@ def normalize_extracted(raw: list[RawLine]) -> Extraction:
             f"A foto tem {len(raw)} linhas; só as primeiras {MAX_EXTRACTED_LINES} foram lidas"
         )
         raw = raw[:MAX_EXTRACTED_LINES]
-    return Extraction([_normalize_line(r) for r in raw], warnings)
+    return Extraction(_group([_normalize_line(r) for r in raw]), warnings)
 
 
 def _check_in_progress(job: Job) -> None:
