@@ -185,8 +185,10 @@ export function LinesEditor({ lines, onChange, diameters, rig }: Props) {
                         aria-describedby={errors[i] ? `line-${i}-error` : undefined}
                         value={line.quantity}
                         inputMode="numeric"
+                        maxLength={5}
                         autoComplete="off"
-                        onChange={(e) => set(i, { quantity: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+                        // Sem filtrar caracteres: "1,5" viraria 15 em silêncio; a validação acusa.
+                        onChange={(e) => set(i, { quantity: e.target.value.trim() })}
                       />
                     </Field>
                   </div>

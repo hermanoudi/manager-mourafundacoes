@@ -30,10 +30,12 @@ describe("LinesEditor", () => {
     expect(within(totals).getByText("Total: 30 estacas · 240,00 m")).toBeInTheDocument();
   });
 
-  it("Qtd aceita só dígitos (no máximo 3)", async () => {
-    render(<Harness initial={[line("")]} />);
-    await userEvent.type(row(1).getByLabelText("Qtd"), "1a2,34");
-    expect(row(1).getByLabelText("Qtd")).toHaveValue("123");
+  it("Qtd digitada com vírgula não vira outro número: acusa erro na linha", async () => {
+    render(<Harness initial={[line("", "8")]} />);
+    await userEvent.type(row(1).getByLabelText("Qtd"), "1,5");
+    expect(row(1).getByLabelText("Qtd")).toHaveValue("1,5");
+    expect(row(1).getByText("Quantidade inválida (1 a 999)")).toBeInTheDocument();
+    expect(screen.getByText("Total: 0 estacas · 0,00 m")).toBeInTheDocument();
   });
 
   it("'Adicionar grupo' copia o diâmetro e deixa a quantidade vazia", async () => {
